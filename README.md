@@ -34,12 +34,22 @@ This project is built incrementally. Only what is listed under *Implemented* wor
   - Indexes supported text files only. It skips dependencies, build output, lockfiles,
     minified, sensitive, binary and non-UTF-8 files, and reports why each file was
     skipped.
+- Chunking (`uaw.chunking`):
+  - Splits documents into line ranges of at most ~2,000 characters. Each chunk is
+    exactly lines `start_line`..`end_line` of its file, which tests check on every
+    chunk, including randomly generated documents.
+  - Code is cut at top-level definitions, keeping decorators and doc comments with
+    them, then between methods, then at blank lines. Small definitions are grouped.
+    A block without any boundary is cut with a small overlap.
+  - Markdown is split by heading, ignoring headings inside code fences. Each chunk
+    keeps its heading breadcrumb (`Install > Windows`).
+  - Lines are split on `\n` only, like GitHub does, so citations stay aligned even
+    in files containing form feeds or Unicode line separators.
 
 ### Planned (MVP 1)
 
 | Milestone | Scope |
 |---|---|
-| 1.3 | Chunking of code and Markdown with exact line ranges |
 | 1.4 | PostgreSQL + pgvector storage (Docker Compose), migrations |
 | 1.5 | Embeddings (Voyage `voyage-code-3`) and ingestion pipeline with job tracking |
 | 1.6 | Retrieval, plus a small labeled question set to measure recall@k |
@@ -94,7 +104,8 @@ backend/
     config.py            # settings (pydantic-settings)
     logging_config.py
     api/                 # HTTP routers
-    domain/              # source-agnostic models (SourceDocument)
+    domain/              # source-agnostic models (SourceDocument, Chunk)
+    chunking/            # line splitting, boundary scores, markdown sections
     connectors/github/   # url, client (HTTP), archive + filters, connector (policy)
   tests/
     unit/                # offline tests, including malicious archives
