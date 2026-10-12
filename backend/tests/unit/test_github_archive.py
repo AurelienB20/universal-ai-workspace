@@ -45,6 +45,14 @@ def test_strips_utf8_bom() -> None:
     assert read_repository_archive(data, LIMITS).documents[0].content == "x = 1\n"
 
 
+def test_nul_byte_anywhere_marks_file_as_binary() -> None:
+    # PostgreSQL text columns reject NUL, so a single late NUL must skip the file.
+    limits = replace(LIMITS, max_file_bytes=64 * 1024)
+    data = make_tarball(file("late_nul.py", b"x = 1\n" * 5000 + b"\x00"))
+
+    assert skipped_reasons(data, limits) == {"late_nul.py": SkipReason.BINARY}
+
+
 def test_reports_why_each_file_was_skipped() -> None:
     data = make_tarball(
         file("node_modules/lib.js"),

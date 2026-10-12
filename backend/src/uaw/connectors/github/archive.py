@@ -30,7 +30,6 @@ from uaw.domain.documents import SourceDocument
 logger = logging.getLogger(__name__)
 
 MAX_PATH_LENGTH = 1024
-BINARY_SNIFF_BYTES = 8192
 _DRAIN_CHUNK_BYTES = 64 * 1024
 _MAX_DISPLAY_PATH_LENGTH = 200
 
@@ -172,7 +171,8 @@ class _ArchiveReader:
         return PurePosixPath(*relative)
 
     def _add_document(self, path: PurePosixPath, language: str, raw: bytes) -> None:
-        if b"\x00" in raw[:BINARY_SNIFF_BYTES]:
+        # The whole file is scanned (files are small): PostgreSQL text cannot store NUL.
+        if b"\x00" in raw:
             self._skip(str(path), SkipReason.BINARY)
             return
         try:

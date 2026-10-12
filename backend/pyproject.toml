@@ -4,9 +4,13 @@ version = "0.1.0"
 description = "Connect your data. Ask anything. Get answers backed by evidence."
 requires-python = ">=3.12"
 dependencies = [
+    "alembic>=1.20.0",
+    "asyncpg>=0.32.0",
     "fastapi>=0.143.0",
     "httpx2>=2.13.1",
+    "pgvector>=0.5.1",
     "pydantic-settings>=2.15.0",
+    "sqlalchemy[asyncio]>=2.1.4",
     "uvicorn[standard]>=0.54.0",
 ]
 
@@ -31,8 +35,13 @@ files = ["src", "tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers -m 'not live'"
-markers = ["live: calls real external services over the network (opt-in: -m live)"]
+# faulthandler is disabled: on Windows it prints a harmless, already-handled WMI error
+# raised while SQLAlchemy imports `platform`, on every run.
+addopts = "-ra --strict-markers -p no:faulthandler -m 'not live and not db'"
+markers = [
+    "live: calls real external services over the network (opt-in: -m live)",
+    "db: needs the PostgreSQL database from docker-compose.yml (opt-in: -m db)",
+]
 
 [dependency-groups]
 dev = [

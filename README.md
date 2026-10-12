@@ -45,12 +45,23 @@ This project is built incrementally. Only what is listed under *Implemented* wor
     keeps its heading breadcrumb (`Install > Windows`).
   - Lines are split on `\n` only, like GitHub does, so citations stay aligned even
     in files containing form feeds or Unicode line separators.
+- Storage (`uaw.storage`), PostgreSQL 16 + pgvector, schema managed by Alembic:
+  - `repositories` → `snapshots` (one import pinned to a commit SHA) → `documents` →
+    `chunks`, with cascading deletes. Citations always point into one immutable snapshot.
+  - Integrity is enforced by the database itself: commit SHA format, unique paths per
+    snapshot, valid line ranges, and a composite foreign key guaranteeing that a chunk
+    and its document belong to the same snapshot.
+  - Chunks carry a `vector(1024)` embedding (filled in by milestone 1.5) with an HNSW
+    index for cosine distance.
+  - The store never commits: the caller owns the transaction, so an import is saved
+    entirely or not at all.
+  - Integration tests run the real migrations against PostgreSQL, and check that they
+    are reversible and match the models exactly.
 
 ### Planned (MVP 1)
 
 | Milestone | Scope |
 |---|---|
-| 1.4 | PostgreSQL + pgvector storage (Docker Compose), migrations |
 | 1.5 | Embeddings (Voyage `voyage-code-3`) and ingestion pipeline with job tracking |
 | 1.6 | Retrieval, plus a small labeled question set to measure recall@k |
 | 1.7 | Grounded answer generation (Claude) with server-validated citations |
@@ -70,12 +81,15 @@ merely asking for it.
 
 ## Local setup
 
-Requirements: [uv](https://docs.astral.sh/uv/). uv installs Python 3.12 automatically.
+Requirements: [uv](https://docs.astral.sh/uv/) (it installs Python 3.12 automatically)
+and Docker.
 
 ```bash
+docker compose up -d --wait  # PostgreSQL + pgvector on 127.0.0.1:5432
 cd backend
 uv sync                      # create .venv and install locked dependencies
 cp .env.example .env         # optional, every setting has a default
+uv run alembic upgrade head  # create or update the database schema
 ```
 
 ### Run the API
@@ -89,7 +103,9 @@ uv run uvicorn uaw.main:create_app --factory --reload
 
 ```bash
 uv run pytest                # unit tests (offline, no API keys needed)
+uv run pytest -m db          # integration tests (needs `docker compose up -d`)
 uv run pytest -m live        # tests against the real GitHub API (network)
+uv run alembic check         # fails if the models and migrations disagree
 uv run ruff check .          # lint
 uv run ruff format --check . # formatting
 uv run mypy                  # static type checking (strict)
@@ -107,7 +123,11 @@ backend/
     domain/              # source-agnostic models (SourceDocument, Chunk)
     chunking/            # line splitting, boundary scores, markdown sections
     connectors/github/   # url, client (HTTP), archive + filters, connector (policy)
+    storage/             # SQLAlchemy tables, engine/sessions, SnapshotStore
+  migrations/            # Alembic migrations
   tests/
     unit/                # offline tests, including malicious archives
+    integration/         # tests against PostgreSQL (opt-in: -m db)
     live/                # opt-in tests against real services
+docker-compose.yml       # local PostgreSQL + pgvector
 ```

@@ -37,11 +37,24 @@ class Settings(BaseSettings):
     max_file_kb: int = Field(default=256, gt=0)  # larger files are skipped
     max_files: int = Field(default=3_000, gt=0)  # indexed files per repository
 
+    # PostgreSQL with pgvector. The default matches docker-compose.yml (local only).
+    # Secret because the URL contains the password.
+    database_url: SecretStr = SecretStr("postgresql+asyncpg://uaw:uaw@127.0.0.1:5432/uaw")
+    database_pool_size: int = Field(default=5, gt=0, le=50)
+
     @field_validator("github_token", mode="before")
     @classmethod
     def _empty_token_is_none(cls, value: object) -> object:
         # ``GITHUB_TOKEN=`` in a .env file means "no token", not an empty credential.
         return None if value == "" else value
+
+    @field_validator("database_url")
+    @classmethod
+    def _require_asyncpg_driver(cls, value: SecretStr) -> SecretStr:
+        # The storage layer is asynchronous and only supports the asyncpg driver.
+        if not value.get_secret_value().startswith("postgresql+asyncpg://"):
+            raise ValueError("DATABASE_URL must start with 'postgresql+asyncpg://'")
+        return value
 
 
 @lru_cache
