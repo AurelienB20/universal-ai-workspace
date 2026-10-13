@@ -7,9 +7,10 @@ saved entirely or not at all (unit of work).
 import hashlib
 import uuid
 from collections.abc import Mapping, Sequence
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,6 +28,19 @@ from uaw.storage.models import (
 
 class SnapshotAlreadyExistsError(Exception):
     """This commit of the repository has already been imported."""
+
+
+class SnapshotStatus(StrEnum):
+    INDEXING = "indexing"
+    READY = "ready"
+
+
+class SnapshotInfo(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    id: uuid.UUID
+    status: SnapshotStatus
+    embedding_model: str
 
 
 class StoredChunk(BaseModel):
@@ -62,18 +76,31 @@ class SnapshotStore:
         ).returning(RepositoryRow.id)
         return (await self._session.execute(stmt)).scalar_one()
 
-    async def find_snapshot(self, repository_id: uuid.UUID, commit_sha: str) -> uuid.UUID | None:
-        stmt = select(SnapshotRow.id).where(
+    async def find_snapshot(self, repository_id: uuid.UUID, commit_sha: str) -> SnapshotInfo | None:
+        stmt = select(SnapshotRow.id, SnapshotRow.status, SnapshotRow.embedding_model).where(
             SnapshotRow.repository_id == repository_id, SnapshotRow.commit_sha == commit_sha
         )
-        return (await self._session.execute(stmt)).scalar_one_or_none()
+        row = (await self._session.execute(stmt)).one_or_none()
+        if row is None:
+            return None
+        return SnapshotInfo(
+            id=row.id, status=SnapshotStatus(row.status), embedding_model=row.embedding_model
+        )
 
-    async def create_snapshot(self, repository_id: uuid.UUID, commit_sha: str) -> uuid.UUID:
+    async def create_snapshot(
+        self, repository_id: uuid.UUID, commit_sha: str, *, embedding_model: str
+    ) -> uuid.UUID:
+        """Create a snapshot in the "indexing" state (not searchable yet)."""
         # ON CONFLICT DO NOTHING instead of catching IntegrityError: a failed statement
         # would abort the caller's whole transaction.
         stmt = (
             pg_insert(SnapshotRow)
-            .values(id=uuid.uuid4(), repository_id=repository_id, commit_sha=commit_sha)
+            .values(
+                id=uuid.uuid4(),
+                repository_id=repository_id,
+                commit_sha=commit_sha,
+                embedding_model=embedding_model,
+            )
             .on_conflict_do_nothing(
                 index_elements=[SnapshotRow.repository_id, SnapshotRow.commit_sha]
             )
@@ -160,6 +187,21 @@ class SnapshotStore:
                 update(ChunkRow),
                 [{"id": chunk_id, "embedding": list(v)} for chunk_id, v in embeddings.items()],
             )
+
+    async def mark_snapshot_ready(self, snapshot_id: uuid.UUID) -> None:
+        """Make the snapshot searchable. Every chunk must have its embedding."""
+        missing = await self._session.scalar(
+            select(func.count())
+            .select_from(ChunkRow)
+            .where(ChunkRow.snapshot_id == snapshot_id, ChunkRow.embedding.is_(None))
+        )
+        if missing:
+            raise ValueError(f"{missing} chunks of snapshot {snapshot_id} have no embedding")
+        await self._session.execute(
+            update(SnapshotRow)
+            .where(SnapshotRow.id == snapshot_id)
+            .values(status=SnapshotStatus.READY)
+        )
 
     async def delete_snapshot(self, snapshot_id: uuid.UUID) -> bool:
         """Delete a snapshot with its documents and chunks. Returns False if absent."""

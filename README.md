@@ -51,18 +51,40 @@ This project is built incrementally. Only what is listed under *Implemented* wor
   - Integrity is enforced by the database itself: commit SHA format, unique paths per
     snapshot, valid line ranges, and a composite foreign key guaranteeing that a chunk
     and its document belong to the same snapshot.
-  - Chunks carry a `vector(1024)` embedding (filled in by milestone 1.5) with an HNSW
-    index for cosine distance.
+  - Chunks carry a `vector(1024)` embedding with an HNSW index for cosine distance.
   - The store never commits: the caller owns the transaction, so an import is saved
     entirely or not at all.
   - Integration tests run the real migrations against PostgreSQL, and check that they
     are reversible and match the models exactly.
+- Embeddings (`uaw.embeddings`): Voyage `voyage-code-3` client behind a provider-agnostic
+  `Embedder` interface.
+  - Batches stay within the API limits (texts and tokens per request). Rate limits and
+    server errors are retried with exponential backoff and jitter, honouring
+    `Retry-After`. Credential and request errors fail immediately.
+  - Responses are validated (count, `index`, dimension, finite values), so a vector can
+    never be attached to the wrong chunk. Over-long texts raise an error instead of
+    being silently truncated.
+  - Documents and queries use Voyage's `document` / `query` input types. The embedded
+    text starts with the file path (and Markdown section); the stored content stays raw.
+- Ingestion pipeline (`uaw.ingestion`) and import API:
+  - `POST /imports {"url": ...}` queues an import and returns `202` with a job;
+    `GET /imports/{id}` reports its status, stage and progress counters.
+  - At most one active import per repository, enforced by a partial unique index:
+    a duplicate request returns the running job.
+  - Chunks are saved in one transaction, embeddings batch by batch (visible progress,
+    no transaction held open during API calls). The snapshot becomes `ready`, and
+    therefore searchable, only once every chunk has its vector.
+  - Re-importing an already indexed commit reuses its snapshot without any API call.
+  - On failure, the partial snapshot is deleted and the job stores a user-facing message;
+    unexpected errors are logged in full but shown to users as a generic message.
+  - Imports run as background tasks in the API process, with a concurrency limit. A
+    restart interrupts them: they are marked as failed at the next startup. This
+    assumes a single API process; a dedicated worker queue can replace it later.
 
 ### Planned (MVP 1)
 
 | Milestone | Scope |
 |---|---|
-| 1.5 | Embeddings (Voyage `voyage-code-3`) and ingestion pipeline with job tracking |
 | 1.6 | Retrieval, plus a small labeled question set to measure recall@k |
 | 1.7 | Grounded answer generation (Claude) with server-validated citations |
 | 1.8 | Hardening: rate limits, timeouts, error handling |
@@ -88,7 +110,7 @@ and Docker.
 docker compose up -d --wait  # PostgreSQL + pgvector on 127.0.0.1:5432
 cd backend
 uv sync                      # create .venv and install locked dependencies
-cp .env.example .env         # optional, every setting has a default
+cp .env.example .env         # then set VOYAGE_API_KEY (required for imports)
 uv run alembic upgrade head  # create or update the database schema
 ```
 
@@ -99,12 +121,19 @@ uv run uvicorn uaw.main:create_app --factory --reload
 # http://127.0.0.1:8000/health   http://127.0.0.1:8000/docs
 ```
 
+Import a repository and follow its progress:
+
+```bash
+curl -X POST http://127.0.0.1:8000/imports   -H "content-type: application/json"   -d '{"url": "https://github.com/pallets/itsdangerous"}'
+curl http://127.0.0.1:8000/imports/<job id>
+```
+
 ### Quality checks
 
 ```bash
 uv run pytest                # unit tests (offline, no API keys needed)
 uv run pytest -m db          # integration tests (needs `docker compose up -d`)
-uv run pytest -m live        # tests against the real GitHub API (network)
+uv run pytest -m live        # tests against the real GitHub and Voyage APIs (network)
 uv run alembic check         # fails if the models and migrations disagree
 uv run ruff check .          # lint
 uv run ruff format --check . # formatting
@@ -119,11 +148,14 @@ backend/
     main.py              # FastAPI app factory
     config.py            # settings (pydantic-settings)
     logging_config.py
-    api/                 # HTTP routers
-    domain/              # source-agnostic models (SourceDocument, Chunk)
+    services.py          # composition root (engine, HTTP clients, pipeline, runner)
+    api/                 # HTTP routers (health, imports)
+    domain/              # source-agnostic models (SourceDocument, Chunk, IngestionJob)
     chunking/            # line splitting, boundary scores, markdown sections
     connectors/github/   # url, client (HTTP), archive + filters, connector (policy)
-    storage/             # SQLAlchemy tables, engine/sessions, SnapshotStore
+    embeddings/          # Embedder interface, Voyage client, batching
+    ingestion/           # import pipeline and background runner
+    storage/             # SQLAlchemy tables, engine/sessions, SnapshotStore, JobStore
   migrations/            # Alembic migrations
   tests/
     unit/                # offline tests, including malicious archives

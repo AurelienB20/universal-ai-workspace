@@ -42,9 +42,22 @@ class Settings(BaseSettings):
     database_url: SecretStr = SecretStr("postgresql+asyncpg://uaw:uaw@127.0.0.1:5432/uaw")
     database_pool_size: int = Field(default=5, gt=0, le=50)
 
-    @field_validator("github_token", mode="before")
+    # Embeddings (Voyage AI). Without a key, imports are refused with a clear error.
+    voyage_api_key: SecretStr | None = None
+    embedding_model: str = "voyage-code-3"
+    voyage_timeout_seconds: float = Field(default=60.0, gt=0, le=300)
+    voyage_max_retries: int = Field(default=4, ge=0, le=10)
+    # Voyage accepts up to 1,000 texts and 120K tokens per voyage-code-3 request. The
+    # character budget assumes the worst case of ~2 characters per token.
+    embedding_batch_size: int = Field(default=128, gt=0, le=1000)
+    embedding_batch_max_chars: int = Field(default=200_000, gt=0, le=240_000)
+
+    # Imports run in the API process, at most this many at a time.
+    max_concurrent_imports: int = Field(default=2, gt=0, le=10)
+
+    @field_validator("github_token", "voyage_api_key", mode="before")
     @classmethod
-    def _empty_token_is_none(cls, value: object) -> object:
+    def _empty_secret_is_none(cls, value: object) -> object:
         # ``GITHUB_TOKEN=`` in a .env file means "no token", not an empty credential.
         return None if value == "" else value
 

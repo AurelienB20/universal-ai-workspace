@@ -12,7 +12,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import make_url, text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from uaw.storage.db import create_session_factory
 
@@ -42,11 +42,18 @@ def database_url() -> str:
 
 
 @pytest.fixture
-async def session(database_url: str) -> AsyncIterator[AsyncSession]:
+async def session_factory(database_url: str) -> AsyncIterator[async_sessionmaker[AsyncSession]]:
     engine = create_async_engine(database_url)
     async with engine.begin() as connection:
         # Clean before (not after) each test, so a failed test leaves its data to inspect.
-        await connection.execute(text("TRUNCATE repositories CASCADE"))
-    async with create_session_factory(engine)() as db_session:
-        yield db_session
+        await connection.execute(text("TRUNCATE repositories, ingestion_jobs CASCADE"))
+    yield create_session_factory(engine)
     await engine.dispose()
+
+
+@pytest.fixture
+async def session(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> AsyncIterator[AsyncSession]:
+    async with session_factory() as db_session:
+        yield db_session

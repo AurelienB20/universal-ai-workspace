@@ -21,7 +21,9 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
     func,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -62,6 +64,7 @@ class SnapshotRow(Base):
     __table_args__ = (
         UniqueConstraint("repository_id", "commit_sha"),
         CheckConstraint("commit_sha ~ '^[0-9a-f]{40}$'", name="commit_sha_format"),
+        CheckConstraint("status IN ('indexing', 'ready')", name="status"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
@@ -69,6 +72,10 @@ class SnapshotRow(Base):
         ForeignKey("repositories.id", ondelete="CASCADE")
     )
     commit_sha: Mapped[str] = mapped_column(String(40))
+    # Only "ready" snapshots are searchable: an index is never used half-built.
+    status: Mapped[str] = mapped_column(String(20), server_default="indexing")
+    # Queries must be embedded with the same model as the documents.
+    embedding_model: Mapped[str] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -121,3 +128,38 @@ class ChunkRow(Base):
     content: Mapped[str] = mapped_column(Text)
     # NULL until the ingestion pipeline computes it.
     embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIMENSIONS))
+
+
+class IngestionJobRow(Base):
+    __tablename__ = "ingestion_jobs"
+    __table_args__ = (
+        CheckConstraint("status IN ('queued', 'running', 'succeeded', 'failed')", name="status"),
+        # At most one active import per repository, enforced by the database even
+        # if two requests arrive at the same time.
+        Index(
+            "uq_ingestion_jobs_active_repository",
+            "repository_key",
+            unique=True,
+            postgresql_where=text("status IN ('queued', 'running')"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    # Lowercase "owner/name", same identity as RepositoryRow.key.
+    repository_key: Mapped[str] = mapped_column(String(200))
+    # Canonical "owner/name" for display (GitHub's casing once known).
+    repository: Mapped[str] = mapped_column(String(200))
+    status: Mapped[str] = mapped_column(String(20))
+    stage: Mapped[str | None] = mapped_column(String(20))
+    documents_count: Mapped[int] = mapped_column(server_default="0")
+    skipped_count: Mapped[int] = mapped_column(server_default="0")
+    chunks_count: Mapped[int] = mapped_column(server_default="0")
+    embedded_count: Mapped[int] = mapped_column(server_default="0")
+    error: Mapped[str | None] = mapped_column(Text)
+    snapshot_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("snapshots.id", ondelete="SET NULL")
+    )
+    reused_snapshot: Mapped[bool] = mapped_column(server_default=false())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

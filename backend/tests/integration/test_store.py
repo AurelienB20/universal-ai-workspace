@@ -13,12 +13,18 @@ from uaw.connectors.github.url import GitHubRepoRef
 from uaw.domain.chunks import Chunk
 from uaw.domain.documents import SourceDocument
 from uaw.storage.models import EMBEDDING_DIMENSIONS, ChunkRow, DocumentRow, RepositoryRow
-from uaw.storage.store import SnapshotAlreadyExistsError, SnapshotStore
+from uaw.storage.store import (
+    SnapshotAlreadyExistsError,
+    SnapshotInfo,
+    SnapshotStatus,
+    SnapshotStore,
+)
 
 pytestmark = [pytest.mark.db, pytest.mark.anyio]
 
 SHA_A = "a" * 40
 SHA_B = "b" * 40
+MODEL = "voyage-code-3"
 CONFIG = ChunkingConfig(max_chars=200, min_chars=50, overlap_lines=1)
 
 DOCUMENTS = [
@@ -55,7 +61,7 @@ def unit_vector(axis: int) -> list[float]:
 
 async def import_snapshot(store: SnapshotStore, sha: str = SHA_A) -> uuid.UUID:
     repository_id = await store.upsert_repository(repository_info())
-    snapshot_id = await store.create_snapshot(repository_id, sha)
+    snapshot_id = await store.create_snapshot(repository_id, sha, embedding_model=MODEL)
     for document in DOCUMENTS:
         await store.add_document(snapshot_id, document, chunk_document(document, CONFIG))
     return snapshot_id
@@ -99,15 +105,33 @@ async def test_chunks_round_trip_exactly(session: AsyncSession) -> None:
 async def test_same_commit_cannot_be_imported_twice(session: AsyncSession) -> None:
     store = SnapshotStore(session)
     repository_id = await store.upsert_repository(repository_info())
-    snapshot_id = await store.create_snapshot(repository_id, SHA_A)
+    snapshot_id = await store.create_snapshot(repository_id, SHA_A, embedding_model=MODEL)
 
     with pytest.raises(SnapshotAlreadyExistsError):
-        await store.create_snapshot(repository_id, SHA_A)
+        await store.create_snapshot(repository_id, SHA_A, embedding_model=MODEL)
 
     # The transaction is still usable: no failed statement aborted it.
-    assert await store.find_snapshot(repository_id, SHA_A) == snapshot_id
+    assert await store.find_snapshot(repository_id, SHA_A) == SnapshotInfo(
+        id=snapshot_id, status=SnapshotStatus.INDEXING, embedding_model=MODEL
+    )
     assert await store.find_snapshot(repository_id, SHA_B) is None
-    await store.create_snapshot(repository_id, SHA_B)
+    await store.create_snapshot(repository_id, SHA_B, embedding_model=MODEL)
+
+
+async def test_snapshot_becomes_ready_only_when_fully_embedded(session: AsyncSession) -> None:
+    store = SnapshotStore(session)
+    snapshot_id = await import_snapshot(store)
+    chunk_ids = [item.id for item in await store.list_chunks(snapshot_id)]
+
+    await store.set_embeddings({chunk_id: unit_vector(0) for chunk_id in chunk_ids[1:]})
+    with pytest.raises(ValueError, match="1 chunks"):
+        await store.mark_snapshot_ready(snapshot_id)
+
+    await store.set_embeddings({chunk_ids[0]: unit_vector(0)})
+    await store.mark_snapshot_ready(snapshot_id)
+    repository_id = await store.upsert_repository(repository_info())
+    snapshot = await store.find_snapshot(repository_id, SHA_A)
+    assert snapshot is not None and snapshot.status is SnapshotStatus.READY
 
 
 async def test_database_rejects_malformed_commit_sha(session: AsyncSession) -> None:
@@ -115,7 +139,7 @@ async def test_database_rejects_malformed_commit_sha(session: AsyncSession) -> N
     repository_id = await store.upsert_repository(repository_info())
 
     with pytest.raises(IntegrityError, match="commit_sha_format"):
-        await store.create_snapshot(repository_id, "A" * 40)
+        await store.create_snapshot(repository_id, "A" * 40, embedding_model=MODEL)
 
 
 async def test_database_rejects_duplicate_path_in_a_snapshot(session: AsyncSession) -> None:
@@ -129,7 +153,7 @@ async def test_database_rejects_duplicate_path_in_a_snapshot(session: AsyncSessi
 async def test_chunks_must_belong_to_their_document(session: AsyncSession) -> None:
     store = SnapshotStore(session)
     repository_id = await store.upsert_repository(repository_info())
-    snapshot_id = await store.create_snapshot(repository_id, SHA_A)
+    snapshot_id = await store.create_snapshot(repository_id, SHA_A, embedding_model=MODEL)
     foreign = Chunk(path="other.py", language="python", start_line=1, end_line=1, content="x\n")
 
     with pytest.raises(ValueError, match=r"src/app\.py"):
@@ -140,7 +164,7 @@ async def test_chunk_snapshot_must_match_its_document(session: AsyncSession) -> 
     store = SnapshotStore(session)
     snapshot_a = await import_snapshot(store, SHA_A)
     repository_id = await store.upsert_repository(repository_info())
-    snapshot_b = await store.create_snapshot(repository_id, SHA_B)
+    snapshot_b = await store.create_snapshot(repository_id, SHA_B, embedding_model=MODEL)
     document_id = (
         (await session.execute(select(DocumentRow.id).where(DocumentRow.snapshot_id == snapshot_a)))
         .scalars()
