@@ -103,10 +103,25 @@ def parse_github_repo_url(raw_url: str) -> GitHubRepoRef:
         )
 
     owner, name = segments
-    name = name.removesuffix(".git")
+    return _validated_ref(owner, name.removesuffix(".git"))
+
+
+def parse_github_full_name(raw_name: str) -> GitHubRepoRef:
+    """Parse an ``owner/name`` repository identifier, with the same rules as URLs.
+
+    Raises:
+        InvalidRepositoryUrlError: if the input is not exactly ``owner/name``.
+    """
+    segments = raw_name.strip().split("/")
+    if len(segments) != 2:
+        raise InvalidRepositoryUrlError("Use the 'owner/repository' form, e.g. 'pallets/flask'.")
+    owner, name = segments
+    return _validated_ref(owner, name)
+
+
+def _validated_ref(owner: str, name: str) -> GitHubRepoRef:
     if not re.fullmatch(OWNER_PATTERN, owner):
         raise InvalidRepositoryUrlError(f"'{owner}' is not a valid GitHub owner name.")
     if not re.fullmatch(REPO_PATTERN, name) or name in _RESERVED_REPO_NAMES:
         raise InvalidRepositoryUrlError(f"'{name}' is not a valid GitHub repository name.")
-
     return GitHubRepoRef(owner=owner, name=name)

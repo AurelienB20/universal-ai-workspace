@@ -1,0 +1,107 @@
+{
+  "repository": "pallets/itsdangerous",
+  "commit_sha": "672971d66a2ef9f85151e53283113f33d642dabd",
+  "description": "Developer questions about itsdangerous. relevant_paths lists every indexed file that contains (part of) the answer. Questions q18-q20 are in French, to check cross-lingual retrieval.",
+  "questions": [
+    {
+      "id": "q01-constant-time",
+      "question": "How is the signature compared to protect against timing attacks?",
+      "relevant_paths": ["src/itsdangerous/signer.py"]
+    },
+    {
+      "id": "q02-default-digest",
+      "question": "Which hash function is used by default for HMAC signatures?",
+      "relevant_paths": ["src/itsdangerous/signer.py", "docs/concepts.rst"]
+    },
+    {
+      "id": "q03-token-expiry",
+      "question": "How can I make a token expire after a given number of seconds?",
+      "relevant_paths": ["src/itsdangerous/timed.py", "docs/timed.rst"]
+    },
+    {
+      "id": "q04-expired-exception",
+      "question": "Which exception is raised when a signed value is too old?",
+      "relevant_paths": ["src/itsdangerous/exc.py", "src/itsdangerous/timed.py"]
+    },
+    {
+      "id": "q05-key-rotation",
+      "question": "How do I rotate secret keys without invalidating tokens signed with an older key?",
+      "relevant_paths": ["docs/concepts.rst", "src/itsdangerous/signer.py"]
+    },
+    {
+      "id": "q06-url-compression",
+      "question": "How is the payload compressed to make URL-safe tokens shorter?",
+      "relevant_paths": ["src/itsdangerous/url_safe.py"]
+    },
+    {
+      "id": "q07-base64-padding",
+      "question": "How is missing base64 padding handled when decoding?",
+      "relevant_paths": ["src/itsdangerous/encoding.py"]
+    },
+    {
+      "id": "q08-key-derivation",
+      "question": "Which key derivation methods are supported and how do they combine the salt and the secret key?",
+      "relevant_paths": ["src/itsdangerous/signer.py"]
+    },
+    {
+      "id": "q09-upgrade-digest",
+      "question": "How can I switch to SHA-512 signatures while still accepting old SHA-1 tokens?",
+      "relevant_paths": ["docs/serializer.rst", "docs/concepts.rst", "src/itsdangerous/serializer.py"]
+    },
+    {
+      "id": "q10-loads-unsafe",
+      "question": "How can I read a payload even if its signature is invalid, for debugging?",
+      "relevant_paths": ["src/itsdangerous/serializer.py", "docs/serializer.rst"]
+    },
+    {
+      "id": "q11-salt",
+      "question": "What is the salt for, and why use different salts for different kinds of tokens?",
+      "relevant_paths": ["docs/concepts.rst"]
+    },
+    {
+      "id": "q12-timestamp-encoding",
+      "question": "How is the timestamp encoded inside a timestamp-signed value?",
+      "relevant_paths": ["src/itsdangerous/timed.py", "src/itsdangerous/encoding.py"]
+    },
+    {
+      "id": "q13-none-algorithm",
+      "question": "Is there a signing algorithm that produces an empty signature?",
+      "relevant_paths": ["src/itsdangerous/signer.py"]
+    },
+    {
+      "id": "q14-compact-json",
+      "question": "Where is the JSON serializer that produces compact output without spaces?",
+      "relevant_paths": ["src/itsdangerous/_json.py"]
+    },
+    {
+      "id": "q15-expiry-tests",
+      "question": "Where are the tests checking that expired signatures are rejected?",
+      "relevant_paths": ["tests/test_itsdangerous/test_timed.py"]
+    },
+    {
+      "id": "q16-quickstart",
+      "question": "Show a simple example of creating a token for a user id and loading it back.",
+      "relevant_paths": ["README.md", "docs/serializer.rst"]
+    },
+    {
+      "id": "q17-changelog",
+      "question": "Which Python versions were dropped in the latest release notes?",
+      "relevant_paths": ["CHANGES.rst"]
+    },
+    {
+      "id": "q18-fr-validate",
+      "question": "Comment vérifier qu'une valeur signée est valide sans lever d'exception ?",
+      "relevant_paths": ["src/itsdangerous/signer.py", "src/itsdangerous/timed.py"]
+    },
+    {
+      "id": "q19-fr-bad-payload",
+      "question": "Quelle erreur est levée quand le contenu signé ne peut pas être désérialisé ?",
+      "relevant_paths": ["src/itsdangerous/exc.py", "src/itsdangerous/serializer.py"]
+    },
+    {
+      "id": "q20-fr-generate-key",
+      "question": "Comment générer une bonne clé secrète et où la stocker ?",
+      "relevant_paths": ["docs/concepts.rst"]
+    }
+  ]
+}

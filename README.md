@@ -80,12 +80,29 @@ This project is built incrementally. Only what is listed under *Implemented* wor
   - Imports run as background tasks in the API process, with a concurrency limit. A
     restart interrupts them: they are marked as failed at the next startup. This
     assumes a single API process; a dedicated worker queue can replace it later.
+- Retrieval (`uaw.retrieval`) and search API, without any LLM:
+  - `POST /search {"repository": "owner/name", "query": ..., "top_k": 10}` returns the
+    chunks closest to the query (cosine similarity), best first, each with a permanent
+    GitHub link to its exact lines at the indexed commit (`?plain=1` for rendered files
+    such as Markdown, where line anchors would not work otherwise).
+  - Searches only the repository's latest `ready` snapshot. A repository that is not
+    imported, or still indexing, gets a `404` without any embedding API call.
+  - Refuses (`409`) to compare a query with chunks embedded by another model: their
+    vectors are not comparable, and results would be silently meaningless.
+  - The HNSW index covers every repository, so a filtered search could keep only the
+    nearest chunks of the whole table, then filter them all out. pgvector's iterative
+    index scans keep scanning until enough rows match. An integration test forces this
+    plan and shows the plain query losing every result.
+- Retrieval evaluation (`uaw.evaluation`): a labeled question set
+  (`backend/eval/itsdangerous.json`, 20 questions, 3 of them in French) and a command
+  that reports hit@k, recall@k (file level) and MRR, and lists the questions whose
+  first hit is not relevant. It checks that every labeled file is indexed, so a stale
+  label cannot silently count as a miss.
 
 ### Planned (MVP 1)
 
 | Milestone | Scope |
 |---|---|
-| 1.6 | Retrieval, plus a small labeled question set to measure recall@k |
 | 1.7 | Grounded answer generation (Claude) with server-validated citations |
 | 1.8 | Hardening: rate limits, timeouts, error handling |
 | 1.9 | Minimal Next.js interface |
@@ -128,6 +145,21 @@ curl -X POST http://127.0.0.1:8000/imports   -H "content-type: application/json"
 curl http://127.0.0.1:8000/imports/<job id>
 ```
 
+Search it once the import has succeeded:
+
+```bash
+curl -X POST http://127.0.0.1:8000/search -H "content-type: application/json"   -d '{"repository": "pallets/itsdangerous", "query": "How are signatures verified?", "top_k": 5}'
+```
+
+### Measure retrieval quality
+
+Import `https://github.com/pallets/itsdangerous` (see above), then:
+
+```bash
+uv run python -m uaw.evaluation eval/itsdangerous.json             # one Voyage call per question
+uv run python -m uaw.evaluation eval/itsdangerous.json --json report.json
+```
+
 ### Quality checks
 
 ```bash
@@ -149,14 +181,17 @@ backend/
     config.py            # settings (pydantic-settings)
     logging_config.py
     services.py          # composition root (engine, HTTP clients, pipeline, runner)
-    api/                 # HTTP routers (health, imports)
+    api/                 # HTTP routers (health, imports, search)
     domain/              # source-agnostic models (SourceDocument, Chunk, IngestionJob)
     chunking/            # line splitting, boundary scores, markdown sections
-    connectors/github/   # url, client (HTTP), archive + filters, connector (policy)
+    connectors/github/   # url, client (HTTP), archive + filters, connector (policy), links
     embeddings/          # Embedder interface, Voyage client, batching
     ingestion/           # import pipeline and background runner
-    storage/             # SQLAlchemy tables, engine/sessions, SnapshotStore, JobStore
+    retrieval/           # semantic search over the latest ready snapshot
+    evaluation/          # retrieval metrics and evaluation command
+    storage/             # SQLAlchemy tables, engine/sessions, SnapshotStore, JobStore, ChunkSearch
   migrations/            # Alembic migrations
+  eval/                  # labeled question sets for retrieval evaluation
   tests/
     unit/                # offline tests, including malicious archives
     integration/         # tests against PostgreSQL (opt-in: -m db)

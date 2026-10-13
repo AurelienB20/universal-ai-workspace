@@ -11,6 +11,7 @@ from uaw.connectors.github.connector import build_github_connector, create_githu
 from uaw.embeddings.voyage import VoyageEmbedder, create_voyage_http_client
 from uaw.ingestion.pipeline import IngestionPipeline
 from uaw.ingestion.runner import IngestionRunner
+from uaw.retrieval.retriever import Retriever
 from uaw.storage.db import create_engine, create_session_factory
 from uaw.storage.jobs import JobStore
 from uaw.storage.models import EMBEDDING_DIMENSIONS
@@ -21,8 +22,10 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class Services:
     session_factory: async_sessionmaker[AsyncSession]
-    # None when no embedding API key is configured: imports are then refused.
+    # Both None when no embedding API key is configured: imports and searches are
+    # then refused.
     runner: IngestionRunner | None
+    retriever: Retriever | None
 
 
 async def build_services(settings: Settings, stack: AsyncExitStack) -> Services:
@@ -39,8 +42,8 @@ async def build_services(settings: Settings, stack: AsyncExitStack) -> Services:
         logger.warning("Marked %d interrupted import jobs as failed", interrupted)
 
     if settings.voyage_api_key is None:
-        logger.warning("VOYAGE_API_KEY is not set: repository imports are disabled")
-        return Services(session_factory=session_factory, runner=None)
+        logger.warning("VOYAGE_API_KEY is not set: imports and searches are disabled")
+        return Services(session_factory=session_factory, runner=None, retriever=None)
 
     github_http = await stack.enter_async_context(create_github_http_client(settings))
     voyage_http = await stack.enter_async_context(
@@ -63,4 +66,8 @@ async def build_services(settings: Settings, stack: AsyncExitStack) -> Services:
     )
     runner = IngestionRunner(pipeline, max_concurrent=settings.max_concurrent_imports)
     stack.push_async_callback(runner.shutdown)
-    return Services(session_factory=session_factory, runner=runner)
+    return Services(
+        session_factory=session_factory,
+        runner=runner,
+        retriever=Retriever(session_factory, embedder),
+    )

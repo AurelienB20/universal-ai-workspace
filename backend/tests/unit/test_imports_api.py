@@ -14,7 +14,7 @@ from uaw.services import Services
 def client_with(runner: IngestionRunner | None) -> TestClient:
     app = create_app(Settings(_env_file=None, app_env="test"))
     # The session factory must not be used by these requests.
-    services = Services(session_factory=cast(Any, None), runner=runner)
+    services = Services(session_factory=cast(Any, None), runner=runner, retriever=None)
     app.dependency_overrides[get_services] = lambda: services
     return TestClient(app)  # not entered: the lifespan (database) does not run
 

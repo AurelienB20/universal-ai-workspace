@@ -5,6 +5,7 @@ from uaw.connectors.github.url import (
     MAX_URL_LENGTH,
     GitHubRepoRef,
     InvalidRepositoryUrlError,
+    parse_github_full_name,
     parse_github_repo_url,
 )
 
@@ -123,3 +124,24 @@ def test_ref_is_immutable() -> None:
 
     with pytest.raises(ValidationError):
         ref.owner = "other"  # type: ignore[misc]
+
+
+@pytest.mark.parametrize(
+    ("value", "owner", "name"),
+    [
+        ("pallets/flask", "pallets", "flask"),
+        ("  Pallets/Flask ", "Pallets", "Flask"),
+        ("my-org/my_repo.v2", "my-org", "my_repo.v2"),
+    ],
+)
+def test_parses_full_names(value: str, owner: str, name: str) -> None:
+    assert parse_github_full_name(value) == GitHubRepoRef(owner=owner, name=name)
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["", "flask", "pallets/flask/extra", "/flask", "pallets/", "-bad/repo", "o/..", "o/r p"],
+)
+def test_rejects_invalid_full_names(value: str) -> None:
+    with pytest.raises(InvalidRepositoryUrlError):
+        parse_github_full_name(value)

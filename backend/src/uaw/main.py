@@ -11,7 +11,7 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from fastapi import FastAPI
 
 from uaw import __version__
-from uaw.api import health, imports
+from uaw.api import health, imports, search
 from uaw.config import Settings, get_settings
 from uaw.logging_config import configure_logging
 from uaw.services import build_services
@@ -34,6 +34,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.include_router(health.router)
     app.include_router(imports.router)
+    app.include_router(search.router)
 
     logger.info("Application created (env=%s)", settings.app_env)
     return app
