@@ -14,7 +14,9 @@ from uaw.services import Services
 
 def client_with(retriever: Retriever | None) -> TestClient:
     app = create_app(Settings(_env_file=None, app_env="test"))
-    services = Services(session_factory=cast(Any, None), runner=None, retriever=retriever)
+    services = Services(
+        session_factory=cast(Any, None), runner=None, retriever=retriever, answerer=None
+    )
     app.dependency_overrides[get_services] = lambda: services
     return TestClient(app)  # not entered: the lifespan (database) does not run
 

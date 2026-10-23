@@ -231,6 +231,7 @@ async def client(
         session_factory=session_factory,
         runner=None,
         retriever=Retriever(session_factory, AxisEmbedder()),
+        answerer=None,
     )
     app.dependency_overrides[get_services] = lambda: services
     transport = httpx.ASGITransport(app=app)

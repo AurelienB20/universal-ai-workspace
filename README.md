@@ -98,12 +98,28 @@ This project is built incrementally. Only what is listed under *Implemented* wor
   that reports hit@k, recall@k (file level) and MRR, and lists the questions whose
   first hit is not relevant. It checks that every labeled file is indexed, so a stale
   label cannot silently count as a miss.
+- Grounded answers (`uaw.generation`) with server-validated citations:
+  - `POST /ask {"repository": "owner/name", "question": ...}` retrieves the top passages,
+    asks Claude (`claude-opus-5-5` by default) and returns a Markdown answer citing
+    `[S1]`, `[S2]`…, with each citation's file, line range and permanent link.
+  - Structured output: the API enforces a JSON schema `{answer, insufficient_context}`,
+    so the model can say the passages do not contain the answer instead of guessing.
+  - The stop reason is checked before the content is read: a safety refusal or a
+    truncated answer is reported as such, never parsed as a partial answer. Refusals
+    are retried server-side on a fallback model (`fallbacks: "default"`, can be disabled).
+  - Repository content is untrusted: passages are escaped inside `<source>` tags (a file
+    cannot close its tag or forge another source) and the instructions say they are
+    data, never commands.
+  - Effort is set explicitly (`LLM_EFFORT`, default `medium`): Claude Opus 5.5 always
+    thinks, and effort is its only depth control. SDK errors are translated into
+    user-facing messages; rate limits and server errors are retried by the SDK.
+  - Prompt caching is deliberately not used yet: the stable prefix (instructions) is
+    below the minimum cacheable size, and the passages change with every question.
 
 ### Planned (MVP 1)
 
 | Milestone | Scope |
 |---|---|
-| 1.7 | Grounded answer generation (Claude) with server-validated citations |
 | 1.8 | Hardening: rate limits, timeouts, error handling |
 | 1.9 | Minimal Next.js interface |
 
@@ -127,7 +143,7 @@ and Docker.
 docker compose up -d --wait  # PostgreSQL + pgvector on 127.0.0.1:5432
 cd backend
 uv sync                      # create .venv and install locked dependencies
-cp .env.example .env         # then set VOYAGE_API_KEY (required for imports)
+cp .env.example .env         # then set VOYAGE_API_KEY and ANTHROPIC_API_KEY
 uv run alembic upgrade head  # create or update the database schema
 ```
 
@@ -151,6 +167,13 @@ Search it once the import has succeeded:
 curl -X POST http://127.0.0.1:8000/search -H "content-type: application/json"   -d '{"repository": "pallets/itsdangerous", "query": "How are signatures verified?", "top_k": 5}'
 ```
 
+Ask a question (needs `ANTHROPIC_API_KEY` too):
+
+```bash
+curl -X POST http://127.0.0.1:8000/ask -H "content-type: application/json" \
+  -d '{"repository": "pallets/itsdangerous", "question": "How are expired tokens detected?"}'
+```
+
 ### Measure retrieval quality
 
 Import `https://github.com/pallets/itsdangerous` (see above), then:
@@ -165,7 +188,7 @@ uv run python -m uaw.evaluation eval/itsdangerous.json --json report.json
 ```bash
 uv run pytest                # unit tests (offline, no API keys needed)
 uv run pytest -m db          # integration tests (needs `docker compose up -d`)
-uv run pytest -m live        # tests against the real GitHub and Voyage APIs (network)
+uv run pytest -m live        # tests against the real GitHub, Voyage and Anthropic APIs
 uv run alembic check         # fails if the models and migrations disagree
 uv run ruff check .          # lint
 uv run ruff format --check . # formatting
@@ -181,13 +204,14 @@ backend/
     config.py            # settings (pydantic-settings)
     logging_config.py
     services.py          # composition root (engine, HTTP clients, pipeline, runner)
-    api/                 # HTTP routers (health, imports, search)
+    api/                 # HTTP routers (health, imports, search, ask)
     domain/              # source-agnostic models (SourceDocument, Chunk, IngestionJob)
     chunking/            # line splitting, boundary scores, markdown sections
     connectors/github/   # url, client (HTTP), archive + filters, connector (policy), links
     embeddings/          # Embedder interface, Voyage client, batching
     ingestion/           # import pipeline and background runner
     retrieval/           # semantic search over the latest ready snapshot
+    generation/          # prompt, Claude client, citation checking, answerer
     evaluation/          # retrieval metrics and evaluation command
     storage/             # SQLAlchemy tables, engine/sessions, SnapshotStore, JobStore, ChunkSearch
   migrations/            # Alembic migrations

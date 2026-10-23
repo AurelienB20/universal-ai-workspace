@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from uaw.config import Settings
 from uaw.connectors.github.connector import build_github_connector, create_github_http_client
 from uaw.embeddings.voyage import VoyageEmbedder, create_voyage_http_client
+from uaw.generation.answerer import Answerer
+from uaw.generation.claude import ClaudeAnswerModel, create_anthropic_client
 from uaw.ingestion.pipeline import IngestionPipeline
 from uaw.ingestion.runner import IngestionRunner
 from uaw.retrieval.retriever import Retriever
@@ -26,6 +28,8 @@ class Services:
     # then refused.
     runner: IngestionRunner | None
     retriever: Retriever | None
+    # None when the embedding or the Anthropic API key is missing.
+    answerer: Answerer | None
 
 
 async def build_services(settings: Settings, stack: AsyncExitStack) -> Services:
@@ -42,8 +46,8 @@ async def build_services(settings: Settings, stack: AsyncExitStack) -> Services:
         logger.warning("Marked %d interrupted import jobs as failed", interrupted)
 
     if settings.voyage_api_key is None:
-        logger.warning("VOYAGE_API_KEY is not set: imports and searches are disabled")
-        return Services(session_factory=session_factory, runner=None, retriever=None)
+        logger.warning("VOYAGE_API_KEY is not set: imports, searches and answers are disabled")
+        return Services(session_factory=session_factory, runner=None, retriever=None, answerer=None)
 
     github_http = await stack.enter_async_context(create_github_http_client(settings))
     voyage_http = await stack.enter_async_context(
@@ -66,8 +70,32 @@ async def build_services(settings: Settings, stack: AsyncExitStack) -> Services:
     )
     runner = IngestionRunner(pipeline, max_concurrent=settings.max_concurrent_imports)
     stack.push_async_callback(runner.shutdown)
+    retriever = Retriever(session_factory, embedder)
     return Services(
         session_factory=session_factory,
         runner=runner,
-        retriever=Retriever(session_factory, embedder),
+        retriever=retriever,
+        answerer=_build_answerer(settings, stack, retriever),
     )
+
+
+def _build_answerer(
+    settings: Settings, stack: AsyncExitStack, retriever: Retriever
+) -> Answerer | None:
+    if settings.anthropic_api_key is None:
+        logger.warning("ANTHROPIC_API_KEY is not set: answers are disabled")
+        return None
+    client = create_anthropic_client(
+        settings.anthropic_api_key.get_secret_value(),
+        timeout_seconds=settings.llm_timeout_seconds,
+        max_retries=settings.llm_max_retries,
+    )
+    stack.push_async_callback(client.close)
+    model = ClaudeAnswerModel(
+        client,
+        model=settings.llm_model,
+        effort=settings.llm_effort,
+        max_tokens=settings.llm_max_tokens,
+        refusal_fallback=settings.llm_refusal_fallback,
+    )
+    return Answerer(retriever, model, top_k=settings.answer_top_k)

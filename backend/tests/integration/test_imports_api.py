@@ -29,7 +29,9 @@ async def client(
     session_factory: async_sessionmaker[AsyncSession], runner: IngestionRunner
 ) -> AsyncIterator[httpx.AsyncClient]:
     app = create_app(Settings(_env_file=None, app_env="test"))
-    services = Services(session_factory=session_factory, runner=runner, retriever=None)
+    services = Services(
+        session_factory=session_factory, runner=runner, retriever=None, answerer=None
+    )
     app.dependency_overrides[get_services] = lambda: services
     # ASGITransport runs the app in this event loop, like the database fixtures.
     transport = httpx.ASGITransport(app=app)

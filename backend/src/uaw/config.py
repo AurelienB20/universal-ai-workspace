@@ -11,6 +11,7 @@ from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
+Effort = Literal["low", "medium", "high", "xhigh", "max"]
 
 
 class Settings(BaseSettings):
@@ -55,7 +56,22 @@ class Settings(BaseSettings):
     # Imports run in the API process, at most this many at a time.
     max_concurrent_imports: int = Field(default=2, gt=0, le=10)
 
-    @field_validator("github_token", "voyage_api_key", mode="before")
+    # Answer generation (Claude). Without a key, questions are refused with a clear error.
+    anthropic_api_key: SecretStr | None = None
+    llm_model: str = "claude-opus-5-5"
+    # Claude Opus 5.5 always thinks: effort is the only depth control. Its API default
+    # is "medium"; it is set explicitly so that a model change cannot alter it silently.
+    llm_effort: Effort = "medium"
+    llm_max_tokens: int = Field(default=16_000, gt=0, le=64_000)
+    llm_timeout_seconds: float = Field(default=120.0, gt=0, le=600)
+    llm_max_retries: int = Field(default=2, ge=0, le=10)
+    # On a safety refusal, the API retries the request on a model it picks for the
+    # refusal category, inside the same call.
+    llm_refusal_fallback: bool = True
+    # Passages retrieved and shown to the model for each question.
+    answer_top_k: int = Field(default=8, gt=0, le=20)
+
+    @field_validator("github_token", "voyage_api_key", "anthropic_api_key", mode="before")
     @classmethod
     def _empty_secret_is_none(cls, value: object) -> object:
         # ``GITHUB_TOKEN=`` in a .env file means "no token", not an empty credential.
