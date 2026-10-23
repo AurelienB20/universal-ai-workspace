@@ -137,10 +137,14 @@ merely asking for it.
 ## Local setup
 
 Requirements: [uv](https://docs.astral.sh/uv/) (it installs Python 3.12 automatically)
-and Docker.
+and PostgreSQL 16 + pgvector >= 0.8 on 127.0.0.1:5432, from either:
+
+- Docker: `docker compose up -d --wait db`
+- or, lighter on Windows, a WSL Debian distribution without Docker:
+  `wsl -d Debian -- bash scripts/setup-wsl-postgres.sh` once, then
+  `wsl -d Debian -u root -- service postgresql start` (or `stop`).
 
 ```bash
-docker compose up -d --wait  # PostgreSQL + pgvector on 127.0.0.1:5432
 cd backend
 uv sync                      # create .venv and install locked dependencies
 cp .env.example .env         # then set VOYAGE_API_KEY and ANTHROPIC_API_KEY
@@ -187,7 +191,7 @@ uv run python -m uaw.evaluation eval/itsdangerous.json --json report.json
 
 ```bash
 uv run pytest                # unit tests (offline, no API keys needed)
-uv run pytest -m db          # integration tests (needs `docker compose up -d`)
+uv run pytest -m db          # integration tests (needs PostgreSQL, see above)
 uv run pytest -m live        # tests against the real GitHub, Voyage and Anthropic APIs
 uv run alembic check         # fails if the models and migrations disagree
 uv run ruff check .          # lint

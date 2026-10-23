@@ -146,8 +146,11 @@ async def test_top_k_limits_the_number_of_hits(
 async def test_search_uses_the_latest_ready_snapshot_only(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
+    # One transaction per import, as in production: now() is the transaction start time,
+    # so snapshots created in the same transaction would share their created_at.
     async with session_factory.begin() as session:
         await add_snapshot(session, sha=SHA_OLD, files={"old.py": [QUERY]})
+    async with session_factory.begin() as session:
         await add_snapshot(session, sha=SHA_NEW, files={"new.py": [QUERY]})
         # Another repository with a perfect match must never leak into the results.
         await add_snapshot(
