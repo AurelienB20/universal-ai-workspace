@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from uaw.api.deps import get_services
+from uaw.api.ratelimit import rate_limited
+from uaw.api.usage import ensure_within_budget, tracked
 from uaw.connectors.github.url import InvalidRepositoryUrlError, parse_github_full_name
 from uaw.embeddings.errors import EmbeddingError
 from uaw.retrieval.retriever import (
@@ -31,6 +33,7 @@ class SearchRequest(BaseModel):
 
 @router.post(
     "",
+    dependencies=[Depends(rate_limited("search"))],
     responses={
         404: {"description": "The repository has not been imported, or is still indexing."},
         409: {"description": "The repository must be imported again (embedding model changed)."},
@@ -55,9 +58,11 @@ async def search(body: SearchRequest, services: ServicesDep) -> SearchResult:
             status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Search is disabled: no embedding API key is configured.",
         )
+    await ensure_within_budget(services, "voyage")
 
     try:
-        return await services.retriever.search(ref, query, top_k=body.top_k)
+        async with tracked(services, "search", ref.full_name):
+            return await services.retriever.search(ref, query, top_k=body.top_k)
     except RepositoryNotIndexedError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except EmbeddingModelMismatchError as exc:

@@ -46,7 +46,9 @@ async def session_factory(database_url: str) -> AsyncIterator[async_sessionmaker
     engine = create_async_engine(database_url)
     async with engine.begin() as connection:
         # Clean before (not after) each test, so a failed test leaves its data to inspect.
-        await connection.execute(text("TRUNCATE repositories, ingestion_jobs CASCADE"))
+        await connection.execute(
+            text("TRUNCATE repositories, ingestion_jobs, usage_records CASCADE")
+        )
     yield create_session_factory(engine)
     await engine.dispose()
 

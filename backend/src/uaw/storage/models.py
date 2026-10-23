@@ -12,6 +12,7 @@ from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
+    BigInteger,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -163,3 +164,27 @@ class IngestionJobRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class UsageRecordRow(Base):
+    """Tokens used by one operation with one model. Kept when a repository is deleted:
+    the usage was billed anyway."""
+
+    __tablename__ = "usage_records"
+    __table_args__ = (
+        CheckConstraint("operation IN ('import', 'search', 'ask')", name="operation"),
+        CheckConstraint("provider IN ('voyage', 'anthropic')", name="provider"),
+        # Daily budgets sum one provider's tokens since midnight.
+        Index("ix_usage_records_provider_created_at", "provider", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    operation: Mapped[str] = mapped_column(String(20))
+    # "owner/name" as requested by the client.
+    repository: Mapped[str] = mapped_column(String(200))
+    provider: Mapped[str] = mapped_column(String(20))
+    model: Mapped[str] = mapped_column(String(100))
+    requests: Mapped[int]
+    input_tokens: Mapped[int] = mapped_column(BigInteger)
+    output_tokens: Mapped[int] = mapped_column(BigInteger)

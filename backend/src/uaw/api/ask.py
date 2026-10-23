@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from uaw.api.deps import get_services
+from uaw.api.ratelimit import rate_limited
+from uaw.api.usage import ensure_within_budget, tracked
 from uaw.connectors.github.url import InvalidRepositoryUrlError, parse_github_full_name
 from uaw.embeddings.errors import EmbeddingError
 from uaw.generation.answerer import Answer
@@ -29,6 +31,7 @@ class AskRequest(BaseModel):
 
 @router.post(
     "",
+    dependencies=[Depends(rate_limited("ask"))],
     responses={
         404: {"description": "The repository has not been imported, or is still indexing."},
         409: {"description": "The repository must be imported again (embedding model changed)."},
@@ -54,9 +57,11 @@ async def ask(body: AskRequest, services: ServicesDep) -> Answer:
             status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Answers are disabled: an embedding and an Anthropic API key are required.",
         )
+    await ensure_within_budget(services, "voyage", "anthropic")
 
     try:
-        return await services.answerer.ask(ref, question)
+        async with tracked(services, "ask", ref.full_name):
+            return await services.answerer.ask(ref, question)
     except RepositoryNotIndexedError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except EmbeddingModelMismatchError as exc:

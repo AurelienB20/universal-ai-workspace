@@ -6,6 +6,7 @@ import pytest
 
 from uaw.embeddings.errors import EmbeddingConfigurationError, EmbeddingUnavailableError
 from uaw.embeddings.voyage import VoyageEmbedder
+from uaw.usage.meter import ModelUsage, metering
 
 pytestmark = pytest.mark.anyio
 
@@ -174,3 +175,13 @@ async def test_invalid_responses_are_rejected(payload: dict[str, object]) -> Non
 
     with pytest.raises(EmbeddingUnavailableError, match="Voyage AI returned"):
         await embedder.embed_documents(["a"])
+
+
+async def test_billed_tokens_are_reported_to_the_usage_meter() -> None:
+    embedder, _, _ = make_embedder(ok_response, max_batch_size=2)
+
+    with metering() as meter:
+        await embedder.embed_documents(["a", "b", "c"])  # two requests
+        await embedder.embed_query("q")
+
+    assert meter.usages == [ModelUsage("voyage", "voyage-code-3", requests=3, input_tokens=21)]

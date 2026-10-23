@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
 from uaw.api.deps import get_services
+from uaw.api.ratelimit import rate_limited
+from uaw.api.usage import ensure_within_budget
 from uaw.connectors.github.url import InvalidRepositoryUrlError, parse_github_repo_url
 from uaw.domain.jobs import IngestionJob
 from uaw.services import Services
@@ -23,6 +25,7 @@ class ImportRequest(BaseModel):
 @router.post(
     "",
     status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(rate_limited("imports"))],
     responses={
         200: {"description": "An import of this repository is already in progress."},
         422: {"description": "The URL is not a supported GitHub repository URL."},
@@ -42,6 +45,7 @@ async def create_import(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Repository imports are disabled: no embedding API key is configured.",
         )
+    await ensure_within_budget(services, "voyage")
 
     async with services.session_factory.begin() as session:
         job, created = await JobStore(session).create_or_get_active(ref.full_name)

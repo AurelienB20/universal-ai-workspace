@@ -115,12 +115,31 @@ This project is built incrementally. Only what is listed under *Implemented* wor
     user-facing messages; rate limits and server errors are retried by the SDK.
   - Prompt caching is deliberately not used yet: the stable prefix (instructions) is
     below the minimum cacheable size, and the passages change with every question.
+- Hardening:
+  - API key (`X-API-Key` header) on the routes that spend provider tokens, required
+    when `APP_ENV=production`; constant-time comparison.
+  - Per-client rate limits (token bucket, in memory: one API process) on imports,
+    searches and questions, and a request body size limit (413), both returning
+    `Retry-After` / clear errors.
+  - Cost control: Voyage and Claude report the tokens billed for each call to a meter
+    held in a context variable, so concurrent operations never mix their counts. Each
+    import, search and question saves its usage in `usage_records`, even when it fails
+    after being billed. Optional daily token budgets per provider refuse new requests
+    with a `429` until midnight UTC.
+  - Observability: a request ID per request (`X-Request-ID`, reused from a proxy when
+    safe), carried by every log line including background imports; one access log line
+    per request with status and duration; JSON logs (`LOG_FORMAT=json`);
+    `/health` (liveness) and `/health/ready` (database reachable).
+  - Prompt injection: opt-in tests against the real model with passages that try to
+    override the instructions, extract the system prompt, or forge tags and citations.
+  - Continuous integration (GitHub Actions): lint, strict typing, unit tests,
+    integration tests on PostgreSQL + pgvector, and a build of the production image
+    (multi-stage, non-root, locked dependencies).
 
 ### Planned (MVP 1)
 
 | Milestone | Scope |
 |---|---|
-| 1.8 | Hardening: rate limits, timeouts, error handling |
 | 1.9 | Minimal Next.js interface |
 
 Later milestones add hybrid retrieval, reranking and evaluation, then more data sources
@@ -157,6 +176,8 @@ uv run alembic upgrade head  # create or update the database schema
 uv run uvicorn uaw.main:create_app --factory --reload
 # http://127.0.0.1:8000/health   http://127.0.0.1:8000/docs
 ```
+
+When `API_KEY` is set, add `-H "X-API-Key: <key>"` to the requests below.
 
 Import a repository and follow its progress:
 
@@ -199,6 +220,23 @@ uv run ruff format --check . # formatting
 uv run mypy                  # static type checking (strict)
 ```
 
+The same checks run on every push in GitHub Actions (`.github/workflows/ci.yml`),
+except the live tests, which need API keys.
+
+## Deployment
+
+`backend/Dockerfile` builds the production image (`APP_ENV=production`, JSON logs,
+non-root user). It needs `DATABASE_URL`, `API_KEY`, `VOYAGE_API_KEY` and
+`ANTHROPIC_API_KEY`. Apply the migrations before starting a new version:
+
+```bash
+docker run --rm --env-file backend/.env uaw-backend alembic upgrade head
+```
+
+Behind a reverse proxy, set `FORWARDED_ALLOW_IPS` to the proxy's address so that rate
+limits apply to the real client address. Rate limits are counted in memory: run a
+single API process, or move them to a shared store first.
+
 ## Project layout
 
 ```
@@ -206,9 +244,9 @@ backend/
   src/uaw/
     main.py              # FastAPI app factory
     config.py            # settings (pydantic-settings)
-    logging_config.py
+    logging_config.py    # text or JSON logs, request IDs
     services.py          # composition root (engine, HTTP clients, pipeline, runner)
-    api/                 # HTTP routers (health, imports, search, ask)
+    api/                 # HTTP routers, API key, rate limits, middlewares
     domain/              # source-agnostic models (SourceDocument, Chunk, IngestionJob)
     chunking/            # line splitting, boundary scores, markdown sections
     connectors/github/   # url, client (HTTP), archive + filters, connector (policy), links
@@ -217,12 +255,16 @@ backend/
     retrieval/           # semantic search over the latest ready snapshot
     generation/          # prompt, Claude client, citation checking, answerer
     evaluation/          # retrieval metrics and evaluation command
-    storage/             # SQLAlchemy tables, engine/sessions, SnapshotStore, JobStore, ChunkSearch
+    usage/               # token meter, usage recording, daily budgets
+    storage/             # SQLAlchemy tables, engine/sessions, stores, ChunkSearch
   migrations/            # Alembic migrations
   eval/                  # labeled question sets for retrieval evaluation
   tests/
     unit/                # offline tests, including malicious archives
     integration/         # tests against PostgreSQL (opt-in: -m db)
-    live/                # opt-in tests against real services
-docker-compose.yml       # local PostgreSQL + pgvector
+    live/                # opt-in tests against real services (incl. prompt injection)
+  Dockerfile             # production image
+.github/workflows/ci.yml # continuous integration
+docker-compose.yml       # PostgreSQL + pgvector (and the API, profile "app")
+scripts/                 # PostgreSQL + pgvector in WSL, without Docker
 ```

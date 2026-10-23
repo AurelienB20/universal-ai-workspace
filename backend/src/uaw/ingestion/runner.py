@@ -11,6 +11,7 @@ import uuid
 from typing import Protocol
 
 from uaw.connectors.github.url import GitHubRepoRef
+from uaw.usage.tracker import UsageTracker
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +21,11 @@ class Pipeline(Protocol):
 
 
 class IngestionRunner:
-    def __init__(self, pipeline: Pipeline, *, max_concurrent: int) -> None:
+    def __init__(
+        self, pipeline: Pipeline, *, max_concurrent: int, usage: UsageTracker | None = None
+    ) -> None:
         self._pipeline = pipeline
+        self._usage = usage
         # Imports beyond the limit wait in the "queued" state.
         self._semaphore = asyncio.Semaphore(max_concurrent)
         # Strong references: the event loop only keeps weak references to tasks.
@@ -34,7 +38,11 @@ class IngestionRunner:
 
     async def _run(self, job_id: uuid.UUID, ref: GitHubRepoRef) -> None:
         async with self._semaphore:
-            await self._pipeline.run(job_id, ref)
+            if self._usage is None:
+                await self._pipeline.run(job_id, ref)
+                return
+            async with self._usage.track("import", ref.full_name):
+                await self._pipeline.run(job_id, ref)
 
     async def wait_idle(self) -> None:
         """Wait until every submitted import has finished (used by tests)."""

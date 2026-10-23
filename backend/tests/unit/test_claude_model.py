@@ -14,6 +14,7 @@ from uaw.generation.errors import (
     GenerationRefusedError,
     GenerationUnavailableError,
 )
+from uaw.usage.meter import ModelUsage, metering
 
 pytestmark = pytest.mark.anyio
 
@@ -173,3 +174,19 @@ async def test_network_errors_are_reported_as_unavailable() -> None:
 
     with pytest.raises(GenerationUnavailableError):
         await model.generate("s", "u")
+
+
+async def test_billed_tokens_are_reported_even_for_a_refusal() -> None:
+    body = message(
+        [text("I cannot help")],
+        stop_reason="refusal",
+        stop_details={"type": "refusal", "category": "cyber", "explanation": None},
+    )
+    model, _ = model_with(reply(body))
+
+    with metering() as meter, pytest.raises(GenerationRefusedError):
+        await model.generate("s", "u")
+
+    assert meter.usages == [
+        ModelUsage("anthropic", MODEL, requests=1, input_tokens=1200, output_tokens=80)
+    ]

@@ -19,6 +19,7 @@ from uaw.generation.errors import (
     GenerationRefusedError,
     GenerationUnavailableError,
 )
+from uaw.usage.meter import record_usage
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +113,13 @@ class ClaudeAnswerModel:
         return self._parse(message)
 
     def _parse(self, message: BetaMessage) -> Generation:
+        # Refused and truncated responses are billed too.
+        record_usage(
+            "anthropic",
+            message.model,
+            input_tokens=message.usage.input_tokens,
+            output_tokens=message.usage.output_tokens,
+        )
         # The stop reason is checked first: a refused or truncated response does not
         # contain a complete JSON document.
         if message.stop_reason == "refusal":

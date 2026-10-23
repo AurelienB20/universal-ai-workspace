@@ -1,0 +1,9 @@
+# Only pyproject.toml, uv.lock, src, alembic.ini and migrations are needed.
+.env
+.venv
+.mypy_cache
+.pytest_cache
+.ruff_cache
+**/__pycache__
+eval
+tests

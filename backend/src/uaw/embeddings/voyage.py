@@ -17,6 +17,7 @@ from pydantic import BaseModel, ValidationError
 
 from uaw.embeddings.base import batch_ranges
 from uaw.embeddings.errors import EmbeddingConfigurationError, EmbeddingUnavailableError
+from uaw.usage.meter import record_usage
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +134,9 @@ class VoyageEmbedder:
             payload = _EmbeddingsPayload.model_validate_json(response.content)
         except ValidationError as exc:
             raise EmbeddingUnavailableError("Voyage AI returned an unexpected response.") from exc
+        # Recorded before the checks below: a successful response is billed even if
+        # its content is then rejected.
+        record_usage("voyage", self._model, input_tokens=payload.usage.total_tokens)
 
         # Results are matched to inputs by ``index``, never by position in the list.
         if sorted(item.index for item in payload.data) != list(range(expected)):

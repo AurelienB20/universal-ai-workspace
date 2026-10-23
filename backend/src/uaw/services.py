@@ -17,6 +17,7 @@ from uaw.retrieval.retriever import Retriever
 from uaw.storage.db import create_engine, create_session_factory
 from uaw.storage.jobs import JobStore
 from uaw.storage.models import EMBEDDING_DIMENSIONS
+from uaw.usage.tracker import UsageTracker
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,8 @@ class Services:
     retriever: Retriever | None
     # None when the embedding or the Anthropic API key is missing.
     answerer: Answerer | None
+    # None in tests that do not check usage: nothing is recorded or enforced.
+    usage: UsageTracker | None = None
 
 
 async def build_services(settings: Settings, stack: AsyncExitStack) -> Services:
@@ -45,9 +48,23 @@ async def build_services(settings: Settings, stack: AsyncExitStack) -> Services:
     if interrupted:
         logger.warning("Marked %d interrupted import jobs as failed", interrupted)
 
+    usage = UsageTracker(
+        session_factory,
+        daily_budgets={
+            "voyage": settings.daily_embedding_token_budget,
+            "anthropic": settings.daily_llm_token_budget,
+        },
+    )
+
     if settings.voyage_api_key is None:
         logger.warning("VOYAGE_API_KEY is not set: imports, searches and answers are disabled")
-        return Services(session_factory=session_factory, runner=None, retriever=None, answerer=None)
+        return Services(
+            session_factory=session_factory,
+            runner=None,
+            retriever=None,
+            answerer=None,
+            usage=usage,
+        )
 
     github_http = await stack.enter_async_context(create_github_http_client(settings))
     voyage_http = await stack.enter_async_context(
@@ -68,7 +85,7 @@ async def build_services(settings: Settings, stack: AsyncExitStack) -> Services:
         embedder,
         embed_batch_size=settings.embedding_batch_size,
     )
-    runner = IngestionRunner(pipeline, max_concurrent=settings.max_concurrent_imports)
+    runner = IngestionRunner(pipeline, max_concurrent=settings.max_concurrent_imports, usage=usage)
     stack.push_async_callback(runner.shutdown)
     retriever = Retriever(session_factory, embedder)
     return Services(
@@ -76,6 +93,7 @@ async def build_services(settings: Settings, stack: AsyncExitStack) -> Services:
         runner=runner,
         retriever=retriever,
         answerer=_build_answerer(settings, stack, retriever),
+        usage=usage,
     )
 
 

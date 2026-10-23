@@ -5,12 +5,13 @@ error instead of surfacing later in the middle of a request.
 """
 
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
+LogFormat = Literal["text", "json"]
 Effort = Literal["low", "medium", "high", "xhigh", "max"]
 
 
@@ -23,6 +24,23 @@ class Settings(BaseSettings):
 
     app_env: Literal["local", "test", "production"] = "local"
     log_level: LogLevel = "INFO"
+    # "json": one JSON object per line, for a log collector (production).
+    log_format: LogFormat = "text"
+
+    # API protection. Clients send the key in the X-API-Key header. It is required in
+    # production; without it (local development), the API is open.
+    api_key: SecretStr | None = None
+    # Requests per client IP address, counted in memory by each process. 0 = no limit.
+    rate_limit_imports_per_hour: int = Field(default=10, ge=0)
+    rate_limit_search_per_minute: int = Field(default=60, ge=0)
+    rate_limit_ask_per_minute: int = Field(default=10, ge=0)
+    max_request_body_kb: int = Field(default=64, gt=0, le=1024)
+
+    # Cost control: tokens per UTC day, all clients combined. 0 = no budget. Once a
+    # budget is spent, new requests needing that provider are refused until midnight
+    # UTC; a request already running is allowed to finish.
+    daily_embedding_token_budget: int = Field(default=0, ge=0)
+    daily_llm_token_budget: int = Field(default=0, ge=0)
 
     # GitHub connector. A token is optional: it raises the API rate limit from
     # 60 to 5,000 requests per hour. No scope is needed for public repositories.
@@ -71,7 +89,9 @@ class Settings(BaseSettings):
     # Passages retrieved and shown to the model for each question.
     answer_top_k: int = Field(default=8, gt=0, le=20)
 
-    @field_validator("github_token", "voyage_api_key", "anthropic_api_key", mode="before")
+    @field_validator(
+        "api_key", "github_token", "voyage_api_key", "anthropic_api_key", mode="before"
+    )
     @classmethod
     def _empty_secret_is_none(cls, value: object) -> object:
         # ``GITHUB_TOKEN=`` in a .env file means "no token", not an empty credential.
@@ -84,6 +104,13 @@ class Settings(BaseSettings):
         if not value.get_secret_value().startswith("postgresql+asyncpg://"):
             raise ValueError("DATABASE_URL must start with 'postgresql+asyncpg://'")
         return value
+
+    @model_validator(mode="after")
+    def _require_api_key_in_production(self) -> Self:
+        # A public server without a key would let anyone spend the provider budgets.
+        if self.app_env == "production" and self.api_key is None:
+            raise ValueError("API_KEY is required when APP_ENV=production")
+        return self
 
 
 @lru_cache
