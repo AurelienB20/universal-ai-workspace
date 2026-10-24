@@ -3,8 +3,8 @@
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from uaw.evaluation.dataset import EvalDataset
-from uaw.evaluation.metrics import RetrievalReport, evaluate
+from uaw.evaluation.dataset import EvalDataset, EvalQuestion, Split
+from uaw.evaluation.metrics import LEVELS, QuestionRun, RetrievalReport, Scores, Span, evaluate
 from uaw.retrieval.retriever import RetrievalError, Retriever
 from uaw.storage.search import ChunkSearch
 
@@ -22,7 +22,26 @@ class EvaluationRun(BaseModel):
     # Commit actually evaluated (the latest indexed one).
     commit_sha: str
     top_k: int
+    # None: every question.
+    split: Split | None
     report: RetrievalReport
+
+
+def check_labels(questions: list[EvalQuestion], line_counts: dict[str, int]) -> list[str]:
+    """Problems with the labels: files not indexed, lines past the end of a file.
+
+    A wrong label would silently count as a retrieval miss, so the run refuses them."""
+    problems = []
+    for question in questions:
+        for span in question.evidence:
+            lines = line_counts.get(span.path)
+            if lines is None:
+                problems.append(f"{question.id}: {span.path} is not indexed")
+            elif span.end_line is not None and span.end_line > lines:
+                problems.append(
+                    f"{question.id}: {span.path} has {lines} lines, label ends at {span.end_line}"
+                )
+    return problems
 
 
 async def evaluate_dataset(
@@ -31,6 +50,7 @@ async def evaluate_dataset(
     sessions: async_sessionmaker[AsyncSession],
     *,
     top_k: int,
+    split: Split | None = None,
 ) -> EvaluationRun:
     try:
         snapshot = await retriever.find_snapshot(dataset.ref)
@@ -39,49 +59,93 @@ async def evaluate_dataset(
             f"{exc} Import https://github.com/{dataset.repository} first."
         ) from exc
 
-    # A label pointing to a file that is not indexed would silently count as a miss:
-    # refuse to run instead.
+    questions = dataset.select(split)
+    if not questions:
+        raise EvaluationError(f"No question in the {split} split.")
     async with sessions() as session:
-        indexed = await ChunkSearch(session).document_paths(snapshot.id)
-    missing = sorted(dataset.labeled_paths() - indexed)
-    if missing:
+        line_counts = await ChunkSearch(session).document_line_counts(snapshot.id)
+    problems = check_labels(questions, line_counts)
+    if problems:
         raise EvaluationError(
-            f"These labeled files are not in the indexed snapshot ({snapshot.commit_sha}): "
-            + ", ".join(missing)
+            f"Some labels do not match the indexed snapshot ({snapshot.commit_sha}):\n  "
+            + "\n  ".join(problems)
         )
 
     runs = []
-    for question in dataset.questions:
+    for question in questions:
         result = await retriever.search(dataset.ref, question.question, top_k=top_k)
-        runs.append((question.id, [hit.path for hit in result.hits], question.relevant_paths))
+        runs.append(
+            QuestionRun(
+                question_id=question.id,
+                category=question.category,
+                split=question.split,
+                evidence=question.evidence,
+                ranked=[
+                    Span(path=hit.path, start_line=hit.start_line, end_line=hit.end_line)
+                    for hit in result.hits
+                ],
+                scores=[hit.score for hit in result.hits],
+            )
+        )
     return EvaluationRun(
         repository=snapshot.repository,
         commit_sha=snapshot.commit_sha,
         top_k=top_k,
+        split=split,
         report=evaluate(runs, [k for k in REPORTED_KS if k <= top_k]),
     )
 
 
+def _row(label: str, scores: Scores, ks: list[int]) -> str:
+    cells = [f"{scores.hit_rate[k]:>6.2f}" for k in ks] + [f"{scores.recall[k]:>6.2f}" for k in ks]
+    return f"{label:<22}" + "".join(f"  {cell}" for cell in cells) + f"  {scores.mrr:>6.3f}"
+
+
 def format_run(dataset: EvalDataset, run: EvaluationRun) -> str:
     report = run.report
+    ks = sorted(report.overall["lines"].hit_rate)
     lines = [f"Repository: {run.repository} @ {run.commit_sha[:12]}"]
     if run.commit_sha != dataset.commit_sha:
         lines.append(
             f"Warning: labels were written for commit {dataset.commit_sha[:12]}; "
-            "results are comparable only if the labeled files did not change."
+            "results are comparable only if the labeled lines did not change."
         )
-    lines += [f"Questions: {report.questions}", "", f"{'k':>4}  {'hit@k':>6}  {'recall@k':>8}"]
+    lines.append(
+        f"Questions: {report.answerable} scored, {report.unanswerable} without an answer"
+        f" (split: {run.split or 'all'}, top {run.top_k})"
+    )
+    header = (
+        f"{'':<22}"
+        + "".join(f"  {f'hit@{k}':>6}" for k in ks)
+        + "".join(f"  {f'rec@{k}':>6}" for k in ks)
+        + f"  {'MRR':>6}"
+    )
+    lines += ["", header]
+    lines += [_row(f"all, {level}", report.overall[level], ks) for level in LEVELS]
+    lines += ["", "By category (lines):"]
     lines += [
-        f"{k:>4}  {report.hit_rate[k]:>6.2f}  {report.recall[k]:>8.2f}" for k in report.hit_rate
+        _row(f"  {category} ({scores['lines'].questions})", scores["lines"], ks)
+        for category, scores in report.by_category.items()
     ]
-    lines.append(f"MRR@{run.top_k}: {report.mrr:.3f}")
 
     questions = {question.id: question.question for question in dataset.questions}
-    imperfect = [o for o in report.outcomes if o.first_relevant_rank != 1]
+    imperfect = [o for o in report.outcomes if o.answerable and o.first_relevant_rank["lines"] != 1]
     if imperfect:
-        lines += ["", "Questions whose first hit is not relevant:"]
+        lines += ["", "Questions whose first chunk is not evidence (lines):"]
         for outcome in imperfect:
-            rank = outcome.first_relevant_rank
-            where = f"first relevant at rank {rank}" if rank else f"missed in top {run.top_k}"
-            lines.append(f"  - {outcome.question_id} ({where}): {questions[outcome.question_id]}")
+            rank = outcome.first_relevant_rank["lines"]
+            where = f"first evidence at rank {rank}" if rank else f"missed in top {run.top_k}"
+            lines.append(
+                f"  - {outcome.question_id} [{outcome.category}] ({where}): "
+                f"{questions[outcome.question_id]}"
+            )
+    unanswerable = [o for o in report.outcomes if not o.answerable]
+    if unanswerable:
+        lines += ["", "Questions without an answer (best similarity found anyway):"]
+        lines += [
+            f"  - {o.question_id}: {o.top_score:.3f}"
+            if o.top_score is not None
+            else f"  - {o.question_id}: nothing retrieved"
+            for o in unanswerable
+        ]
     return "\n".join(lines)

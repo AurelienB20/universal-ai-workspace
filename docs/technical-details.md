@@ -94,11 +94,21 @@ overview, see the [README](../README.md).
     nearest chunks of the whole table, then filter them all out. pgvector's iterative
     index scans keep scanning until enough rows match. An integration test forces this
     plan and shows the plain query losing every result.
-- Retrieval evaluation (`uaw.evaluation`): a labeled question set
-  (`backend/eval/itsdangerous.json`, 20 questions, 3 of them in French) and a command
-  that reports hit@k, recall@k (file level) and MRR, and lists the questions whose
-  first hit is not relevant. It checks that every labeled file is indexed, so a stale
-  label cannot silently count as a miss.
+- Retrieval evaluation (`uaw.evaluation`): labeled question sets and a command that
+  reports hit@k, recall@k and MRR.
+  - Each question is labeled with its evidence: files, or line ranges of them. Metrics
+    are computed at two levels: **files** (any chunk of an evidence file counts) and
+    **lines** (the chunk must overlap the evidence lines, as a citation needs).
+  - Each question has a category (`lookup`, `paraphrase`, `identifier`, `multi-file`,
+    `cross-lingual`, `unanswerable`) and the report breaks the scores down by category,
+    to show where retrieval fails rather than one average. Questions without an answer
+    are not scored; their best similarity is reported.
+  - Questions are split into `dev` (may be looked at while tuning) and `test` (only to
+    report), so that tuning cannot fit the questions it is judged on (`--split`).
+  - Labels are checked against the indexed snapshot before any API call: a file that is
+    not indexed, or lines past its end, stop the run instead of counting as misses.
+  - The first set (`backend/eval/itsdangerous.json`, 20 questions, file-level labels in
+    the version 1 format, still accepted) is saturated; a harder one is being built.
 - Grounded answers (`uaw.generation`) with server-validated citations:
   - `POST /ask {"repository": "owner/name", "question": ...}` retrieves the top passages,
     asks Claude (`claude-opus-5-5` by default) and returns a Markdown answer citing
@@ -245,6 +255,19 @@ Import `https://github.com/pallets/itsdangerous` (see above), then:
 ```bash
 uv run python -m uaw.evaluation eval/itsdangerous.json             # one Voyage call per question
 uv run python -m uaw.evaluation eval/itsdangerous.json --json report.json
+uv run python -m uaw.evaluation eval/itsdangerous.json --split test  # held-out questions only
+```
+
+A question in the labeled format:
+
+```json
+{
+  "id": "example-question",
+  "question": "How do I mount a group of routes under a common URL prefix?",
+  "category": "paraphrase",
+  "split": "test",
+  "evidence": [{ "path": "src/package/module.py", "start_line": 120, "end_line": 180 }]
+}
 ```
 
 ### Quality checks

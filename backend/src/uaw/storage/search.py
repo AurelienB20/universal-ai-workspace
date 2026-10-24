@@ -4,7 +4,7 @@ import uuid
 from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from uaw.storage.models import (
@@ -130,3 +130,14 @@ class ChunkSearch:
     async def document_paths(self, snapshot_id: uuid.UUID) -> set[str]:
         stmt = select(DocumentRow.path).where(DocumentRow.snapshot_id == snapshot_id)
         return set((await self._session.scalars(stmt)).all())
+
+    async def document_line_counts(self, snapshot_id: uuid.UUID) -> dict[str, int]:
+        """Last line covered by a chunk, per indexed file of the snapshot (0 if the file
+        has no chunk, e.g. an empty file)."""
+        stmt = (
+            select(DocumentRow.path, func.coalesce(func.max(ChunkRow.end_line), 0))
+            .outerjoin(ChunkRow, ChunkRow.document_id == DocumentRow.id)
+            .where(DocumentRow.snapshot_id == snapshot_id)
+            .group_by(DocumentRow.path)
+        )
+        return {path: int(lines) for path, lines in (await self._session.execute(stmt)).all()}

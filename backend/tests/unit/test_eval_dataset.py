@@ -47,8 +47,102 @@ def test_minimal_dataset_is_valid() -> None:
             ]
         },
         {"unexpected": True},
+        # Evidence lines: both or neither, 1-based, in order.
+        {
+            "questions": [
+                {"id": "q1", "question": "A?", "evidence": [{"path": "a.py", "start_line": 3}]}
+            ]
+        },
+        {
+            "questions": [
+                {
+                    "id": "q1",
+                    "question": "A?",
+                    "evidence": [{"path": "a.py", "start_line": 0, "end_line": 2}],
+                }
+            ]
+        },
+        {
+            "questions": [
+                {
+                    "id": "q1",
+                    "question": "A?",
+                    "evidence": [{"path": "a.py", "start_line": 5, "end_line": 4}],
+                }
+            ]
+        },
+        # Categories must match the evidence.
+        {
+            "questions": [
+                {
+                    "id": "q1",
+                    "question": "A?",
+                    "category": "unanswerable",
+                    "relevant_paths": ["a.py"],
+                }
+            ]
+        },
+        {
+            "questions": [
+                {
+                    "id": "q1",
+                    "question": "A?",
+                    "category": "multi-file",
+                    "evidence": [
+                        {"path": "a.py"},
+                        {"path": "a.py", "start_line": 1, "end_line": 2},
+                    ],
+                }
+            ]
+        },
+        {
+            "questions": [
+                {"id": "q1", "question": "A?", "category": "guess", "relevant_paths": ["a.py"]}
+            ]
+        },
+        {
+            "questions": [
+                {"id": "q1", "question": "A?", "split": "train", "relevant_paths": ["a.py"]}
+            ]
+        },
+        {
+            "questions": [
+                {
+                    "id": "q1",
+                    "question": "A?",
+                    "relevant_paths": ["a.py"],
+                    "evidence": [{"path": "a.py"}],
+                }
+            ]
+        },
     ],
 )
 def test_invalid_datasets_are_rejected(overrides: dict[str, Any]) -> None:
     with pytest.raises(ValidationError):
         EvalDataset.model_validate(dataset(**overrides))
+
+
+def test_version_1_labels_become_file_level_evidence() -> None:
+    question = EvalDataset.model_validate(dataset()).questions[0]
+
+    assert [(span.path, span.start_line) for span in question.evidence] == [("a.py", None)]
+    assert (question.category, question.split) == ("lookup", "dev")
+
+
+def test_questions_without_an_answer_and_splits() -> None:
+    parsed = EvalDataset.model_validate(
+        dataset(
+            questions=[
+                {
+                    "id": "q1",
+                    "question": "A?",
+                    "evidence": [{"path": "a.py", "start_line": 1, "end_line": 4}],
+                },
+                {"id": "q2", "question": "B?", "category": "unanswerable", "split": "test"},
+            ]
+        )
+    )
+
+    assert [q.id for q in parsed.select("test")] == ["q2"]
+    assert [q.id for q in parsed.select(None)] == ["q1", "q2"]
+    assert parsed.labeled_paths() == {"a.py"}
