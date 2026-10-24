@@ -22,7 +22,9 @@ sudo -u postgres psql -v ON_ERROR_STOP=1 -c \
 
 for db in uaw uaw_test; do
   if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname = '$db'" | grep -q 1; then
-    sudo -u postgres createdb -O uaw "$db"
+    # UTF8 explicitly: a cluster initialised with the C locale defaults to SQL_ASCII,
+    # where JSONB refuses non-ASCII text (accents in cached answers).
+    sudo -u postgres createdb -O uaw --encoding=UTF8 --locale=C.UTF-8 --template=template0 "$db"
   fi
   # pgvector is not a trusted extension: create it as superuser so uaw does not need to be one.
   sudo -u postgres psql -v ON_ERROR_STOP=1 -d "$db" -c "CREATE EXTENSION IF NOT EXISTS vector"
