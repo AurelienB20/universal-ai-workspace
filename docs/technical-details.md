@@ -256,7 +256,11 @@ Import `https://github.com/pallets/itsdangerous` (see above), then:
 uv run python -m uaw.evaluation eval/itsdangerous.json             # one Voyage call per question
 uv run python -m uaw.evaluation eval/itsdangerous.json --json report.json
 uv run python -m uaw.evaluation eval/itsdangerous.json --split test  # held-out questions only
+uv run python -m uaw.evaluation.compare eval/results/baseline-flask-dev.json new.json  # gains and losses
 ```
+
+`eval/flask.json` needs `https://github.com/pallets/flask` imported too. The reference runs
+and their analysis are in `backend/eval/results/`.
 
 A question in the labeled format:
 

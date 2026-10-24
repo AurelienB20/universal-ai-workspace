@@ -24,9 +24,14 @@ silently count as a miss.
 
 ## Consequences
 
-- The first set (20 questions on `pallets/itsdangerous`, 3 in French) scores hit@1 1.00,
-  recall@5 0.96, MRR 1.00. It is saturated: it cannot show any improvement. The roadmap
-  therefore starts with a harder set, before hybrid search or reranking.
+- The first set (20 questions on `pallets/itsdangerous`, file-level labels) scored hit@1
+  1.00 and MRR 1.00: saturated, it could not show any improvement. It was replaced
+  (2026-10-24) by 65 questions over itsdangerous and Flask, labeled with line ranges,
+  categorised (lookup, paraphrase, identifier, multi-file, cross-lingual, unanswerable) and
+  split into dev and test. On Flask, vector search alone scores hit@1 0.63 and MRR 0.71 at
+  line level, from 0.91 (`lookup`) down to 0.44 (`cross-lingual`): there is now room to
+  measure a change. See [the analysis](../../backend/eval/results/README.md).
+- Changes are compared on the dev split; the test split is run once per finished change.
 - Retrieval is evaluated without the LLM, so a run costs one embedding call per question.
 
 ## Revisit when

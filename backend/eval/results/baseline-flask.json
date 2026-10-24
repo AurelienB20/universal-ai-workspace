@@ -1,0 +1,1153 @@
+{
+  "repository": "pallets/flask",
+  "commit_sha": "d086db856be187255b8ec61ef409357393020f32",
+  "top_k": 10,
+  "split": null,
+  "report": {
+    "answerable": 35,
+    "unanswerable": 4,
+    "overall": {
+      "files": {
+        "questions": 35,
+        "hit_rate": {
+          "1": 0.6285714285714286,
+          "3": 0.7142857142857143,
+          "5": 0.9142857142857143,
+          "10": 0.9428571428571428
+        },
+        "recall": {
+          "1": 0.5,
+          "3": 0.6857142857142857,
+          "5": 0.8428571428571429,
+          "10": 0.8857142857142857
+        },
+        "mrr": 0.7152380952380953
+      },
+      "lines": {
+        "questions": 35,
+        "hit_rate": {
+          "1": 0.6285714285714286,
+          "3": 0.6857142857142857,
+          "5": 0.9142857142857143,
+          "10": 0.9428571428571428
+        },
+        "recall": {
+          "1": 0.4904761904761905,
+          "3": 0.638095238095238,
+          "5": 0.8190476190476191,
+          "10": 0.8571428571428571
+        },
+        "mrr": 0.7114285714285714
+      }
+    },
+    "by_category": {
+      "cross-lingual": {
+        "files": {
+          "questions": 6,
+          "hit_rate": {
+            "1": 0.3333333333333333,
+            "3": 0.5,
+            "5": 0.6666666666666666,
+            "10": 0.8333333333333334
+          },
+          "recall": {
+            "1": 0.3333333333333333,
+            "3": 0.5,
+            "5": 0.5833333333333334,
+            "10": 0.6666666666666666
+          },
+          "mrr": 0.4583333333333333
+        },
+        "lines": {
+          "questions": 6,
+          "hit_rate": {
+            "1": 0.3333333333333333,
+            "3": 0.3333333333333333,
+            "5": 0.6666666666666666,
+            "10": 0.8333333333333334
+          },
+          "recall": {
+            "1": 0.3333333333333333,
+            "3": 0.3333333333333333,
+            "5": 0.5833333333333334,
+            "10": 0.6666666666666666
+          },
+          "mrr": 0.4361111111111111
+        }
+      },
+      "identifier": {
+        "files": {
+          "questions": 8,
+          "hit_rate": {
+            "1": 0.625,
+            "3": 0.75,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "recall": {
+            "1": 0.5,
+            "3": 0.6875,
+            "5": 0.9375,
+            "10": 0.9375
+          },
+          "mrr": 0.7229166666666667
+        },
+        "lines": {
+          "questions": 8,
+          "hit_rate": {
+            "1": 0.625,
+            "3": 0.75,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "recall": {
+            "1": 0.5,
+            "3": 0.6875,
+            "5": 0.9375,
+            "10": 0.9375
+          },
+          "mrr": 0.7229166666666667
+        }
+      },
+      "lookup": {
+        "files": {
+          "questions": 8,
+          "hit_rate": {
+            "1": 0.875,
+            "3": 0.875,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "recall": {
+            "1": 0.75,
+            "3": 0.875,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "mrr": 0.90625
+        },
+        "lines": {
+          "questions": 8,
+          "hit_rate": {
+            "1": 0.875,
+            "3": 0.875,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "recall": {
+            "1": 0.75,
+            "3": 0.875,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "mrr": 0.90625
+        }
+      },
+      "multi-file": {
+        "files": {
+          "questions": 5,
+          "hit_rate": {
+            "1": 0.8,
+            "3": 0.8,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "recall": {
+            "1": 0.4,
+            "3": 0.7,
+            "5": 0.9,
+            "10": 1.0
+          },
+          "mrr": 0.85
+        },
+        "lines": {
+          "questions": 5,
+          "hit_rate": {
+            "1": 0.8,
+            "3": 0.8,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "recall": {
+            "1": 0.3333333333333333,
+            "3": 0.5666666666666667,
+            "5": 0.7333333333333333,
+            "10": 0.8
+          },
+          "mrr": 0.85
+        }
+      },
+      "paraphrase": {
+        "files": {
+          "questions": 8,
+          "hit_rate": {
+            "1": 0.5,
+            "3": 0.625,
+            "5": 0.875,
+            "10": 0.875
+          },
+          "recall": {
+            "1": 0.4375,
+            "3": 0.625,
+            "5": 0.75,
+            "10": 0.8125
+          },
+          "mrr": 0.625
+        },
+        "lines": {
+          "questions": 8,
+          "hit_rate": {
+            "1": 0.5,
+            "3": 0.625,
+            "5": 0.875,
+            "10": 0.875
+          },
+          "recall": {
+            "1": 0.4375,
+            "3": 0.625,
+            "5": 0.75,
+            "10": 0.8125
+          },
+          "mrr": 0.625
+        }
+      }
+    },
+    "outcomes": [
+      {
+        "question_id": "flask-url-for",
+        "category": "lookup",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 0.5,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.5,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.7248590096579327
+      },
+      {
+        "question_id": "flask-session-signing",
+        "category": "lookup",
+        "split": "test",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.7202439522816009
+      },
+      {
+        "question_id": "flask-config-from-envvar",
+        "category": "lookup",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.6247740835220759
+      },
+      {
+        "question_id": "flask-test-client-session",
+        "category": "lookup",
+        "split": "test",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 0.5,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.5,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.6665976047515869
+      },
+      {
+        "question_id": "flask-preprocess-request",
+        "category": "lookup",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 4,
+          "lines": 4
+        },
+        "recall": {
+          "files": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.6616133451461839
+      },
+      {
+        "question_id": "flask-render-template",
+        "category": "lookup",
+        "split": "test",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.7004110038525477
+      },
+      {
+        "question_id": "flask-errorhandler-registration",
+        "category": "lookup",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.6880866846883277
+      },
+      {
+        "question_id": "flask-make-response",
+        "category": "lookup",
+        "split": "test",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.7111175232459704
+      },
+      {
+        "question_id": "flask-request-scoped-storage",
+        "category": "paraphrase",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": null,
+          "lines": null
+        },
+        "recall": {
+          "files": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 0.0,
+            "10": 0.0
+          },
+          "lines": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 0.0,
+            "10": 0.0
+          }
+        },
+        "top_score": 0.6347154814344116
+      },
+      {
+        "question_id": "flask-group-views-prefix",
+        "category": "paraphrase",
+        "split": "test",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 4,
+          "lines": 4
+        },
+        "recall": {
+          "files": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 0.5,
+            "10": 0.5
+          },
+          "lines": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 0.5,
+            "10": 0.5
+          }
+        },
+        "top_score": 0.4522235144843044
+      },
+      {
+        "question_id": "flask-stop-with-error-status",
+        "category": "paraphrase",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.5531904862281828
+      },
+      {
+        "question_id": "flask-modify-outgoing-response",
+        "category": "paraphrase",
+        "split": "test",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 2,
+          "lines": 2
+        },
+        "recall": {
+          "files": {
+            "1": 0.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.6039158465812126
+      },
+      {
+        "question_id": "flask-unsafe-upload-names",
+        "category": "paraphrase",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.5817751711077961
+      },
+      {
+        "question_id": "flask-limit-upload-size",
+        "category": "paraphrase",
+        "split": "test",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 4,
+          "lines": 4
+        },
+        "recall": {
+          "files": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 0.5,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 0.5,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.6581936274882345
+      },
+      {
+        "question_id": "flask-one-time-notification",
+        "category": "paraphrase",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 0.5,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.5,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.47701079937912416
+      },
+      {
+        "question_id": "flask-several-app-instances",
+        "category": "paraphrase",
+        "split": "test",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.5918660407146201
+      },
+      {
+        "question_id": "flask-session-cookie-samesite",
+        "category": "identifier",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 4,
+          "lines": 4
+        },
+        "recall": {
+          "files": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.7868212715600461
+      },
+      {
+        "question_id": "flask-secret-key-fallbacks",
+        "category": "identifier",
+        "split": "test",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 0.5,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.5,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.5452375357348549
+      },
+      {
+        "question_id": "flask-stream-with-context",
+        "category": "identifier",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.5552771157356639
+      },
+      {
+        "question_id": "flask-scriptinfo",
+        "category": "identifier",
+        "split": "test",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.7288225889205985
+      },
+      {
+        "question_id": "flask-after-this-request",
+        "category": "identifier",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 0.5,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.5,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.679092526435852
+      },
+      {
+        "question_id": "flask-propagate-exceptions",
+        "category": "identifier",
+        "split": "test",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 5,
+          "lines": 5
+        },
+        "recall": {
+          "files": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 0.5,
+            "10": 0.5
+          },
+          "lines": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 0.5,
+            "10": 0.5
+          }
+        },
+        "top_score": 0.6937942504882861
+      },
+      {
+        "question_id": "flask-from-prefixed-env",
+        "category": "identifier",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 3,
+          "lines": 3
+        },
+        "recall": {
+          "files": {
+            "1": 0.0,
+            "3": 0.5,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.0,
+            "3": 0.5,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.7250892847669977
+      },
+      {
+        "question_id": "flask-send-file-argument",
+        "category": "identifier",
+        "split": "test",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.6241196765971002
+      },
+      {
+        "question_id": "flask-jsonify-and-provider",
+        "category": "multi-file",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 0.5,
+            "3": 0.5,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.5,
+            "3": 0.5,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.6324926614761353
+      },
+      {
+        "question_id": "flask-context-push-and-teardown",
+        "category": "multi-file",
+        "split": "test",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 4,
+          "lines": 4
+        },
+        "recall": {
+          "files": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 0.5,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 0.3333333333333333,
+            "10": 0.3333333333333333
+          }
+        },
+        "top_score": 0.5913390273653891
+      },
+      {
+        "question_id": "flask-blueprint-registration",
+        "category": "multi-file",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 0.5,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.5,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.648340225219745
+      },
+      {
+        "question_id": "flask-run-finds-app",
+        "category": "multi-file",
+        "split": "test",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 0.5,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.3333333333333333,
+            "3": 0.6666666666666666,
+            "5": 0.6666666666666666,
+            "10": 0.6666666666666666
+          }
+        },
+        "top_score": 0.7787996066332111
+      },
+      {
+        "question_id": "flask-flash-to-template",
+        "category": "multi-file",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 0.5,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.3333333333333333,
+            "3": 0.6666666666666666,
+            "5": 0.6666666666666666,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.6376727819442749
+      },
+      {
+        "question_id": "flask-fr-session-tampering",
+        "category": "cross-lingual",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 3,
+          "lines": 5
+        },
+        "recall": {
+          "files": {
+            "1": 0.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.6073127261027425
+      },
+      {
+        "question_id": "flask-fr-before-each-request",
+        "category": "cross-lingual",
+        "split": "test",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 6,
+          "lines": 6
+        },
+        "recall": {
+          "files": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 0.0,
+            "10": 0.5
+          },
+          "lines": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 0.0,
+            "10": 0.5
+          }
+        },
+        "top_score": 0.543613124812823
+      },
+      {
+        "question_id": "flask-fr-test-without-server",
+        "category": "cross-lingual",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 4,
+          "lines": 4
+        },
+        "recall": {
+          "files": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 0.5,
+            "10": 0.5
+          },
+          "lines": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 0.5,
+            "10": 0.5
+          }
+        },
+        "top_score": 0.7129612393952167
+      },
+      {
+        "question_id": "flask-fr-default-config",
+        "category": "cross-lingual",
+        "split": "test",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.5015676619491174
+      },
+      {
+        "question_id": "flask-fr-custom-404",
+        "category": "cross-lingual",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.6422519683837936
+      },
+      {
+        "question_id": "flask-fr-websockets",
+        "category": "cross-lingual",
+        "split": "test",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": null,
+          "lines": null
+        },
+        "recall": {
+          "files": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 0.0,
+            "10": 0.0
+          },
+          "lines": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 0.0,
+            "10": 0.0
+          }
+        },
+        "top_score": 0.5829840128724595
+      },
+      {
+        "question_id": "flask-no-rate-limit",
+        "category": "unanswerable",
+        "split": "dev",
+        "answerable": false,
+        "first_relevant_rank": {
+          "files": null,
+          "lines": null
+        },
+        "recall": {
+          "files": {},
+          "lines": {}
+        },
+        "top_score": 0.5214081406593323
+      },
+      {
+        "question_id": "flask-no-migrations",
+        "category": "unanswerable",
+        "split": "test",
+        "answerable": false,
+        "first_relevant_rank": {
+          "files": null,
+          "lines": null
+        },
+        "recall": {
+          "files": {},
+          "lines": {}
+        },
+        "top_score": 0.5227377983644286
+      },
+      {
+        "question_id": "flask-no-oauth",
+        "category": "unanswerable",
+        "split": "dev",
+        "answerable": false,
+        "first_relevant_rank": {
+          "files": null,
+          "lines": null
+        },
+        "recall": {
+          "files": {},
+          "lines": {}
+        },
+        "top_score": 0.5379302181047081
+      },
+      {
+        "question_id": "flask-no-grpc",
+        "category": "unanswerable",
+        "split": "test",
+        "answerable": false,
+        "first_relevant_rank": {
+          "files": null,
+          "lines": null
+        },
+        "recall": {
+          "files": {},
+          "lines": {}
+        },
+        "top_score": 0.4896708745352859
+      }
+    ]
+  }
+}

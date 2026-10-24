@@ -172,7 +172,10 @@
       "question": "What does after_this_request do?",
       "category": "identifier",
       "split": "dev",
-      "evidence": [{ "path": "src/flask/ctx.py", "start_line": 118, "end_line": 148 }]
+      "evidence": [
+        { "path": "src/flask/ctx.py", "start_line": 118, "end_line": 148 },
+        { "path": "docs/patterns/deferredcallbacks.rst", "start_line": 1, "end_line": 44 }
+      ]
     },
     {
       "id": "flask-propagate-exceptions",

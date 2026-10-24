@@ -17,7 +17,7 @@
       "split": "test",
       "evidence": [
         { "path": "src/itsdangerous/signer.py", "start_line": 48, "end_line": 64 },
-        { "path": "docs/concepts.rst", "start_line": 137, "end_line": 155 }
+        { "path": "docs/concepts.rst", "start_line": 137, "end_line": 154 }
       ]
     },
     {
@@ -27,7 +27,7 @@
       "split": "dev",
       "evidence": [
         { "path": "src/itsdangerous/timed.py", "start_line": 72, "end_line": 158 },
-        { "path": "docs/timed.rst", "start_line": 3, "end_line": 29 }
+        { "path": "docs/timed.rst", "start_line": 3, "end_line": 28 }
       ]
     },
     {
@@ -78,7 +78,7 @@
       "split": "dev",
       "evidence": [
         { "path": "docs/serializer.rst", "start_line": 77, "end_line": 106 },
-        { "path": "docs/concepts.rst", "start_line": 137, "end_line": 155 },
+        { "path": "docs/concepts.rst", "start_line": 137, "end_line": 154 },
         { "path": "src/itsdangerous/serializer.py", "start_line": 287, "end_line": 307 }
       ]
     },
@@ -195,7 +195,7 @@
       "split": "dev",
       "evidence": [
         { "path": "src/itsdangerous/timed.py", "start_line": 185, "end_line": 220 },
-        { "path": "docs/timed.rst", "start_line": 3, "end_line": 29 }
+        { "path": "docs/timed.rst", "start_line": 3, "end_line": 28 }
       ]
     },
     {

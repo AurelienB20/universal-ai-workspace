@@ -14,7 +14,7 @@ reviewed before the next.
 - **What makes it hard:** citations that cannot be invented, repositories treated as
   hostile input, a public demo that strangers cannot abuse or turn into a bill, and the
   discipline to measure before optimising.
-- **Results:** about 10 s and $0.03 per answer, 460 backend and 32 frontend tests, every
+- **Results:** about 10 s and $0.03 per answer, 479 backend and 32 frontend tests, every
   check in CI, and eight problems found by tests, an audit or by using the real system,
   described below.
 
@@ -106,28 +106,34 @@ using the real system, and each fix is covered by a test.
 7. **One answer could cost $0.34.** The output cap was 16,000 tokens while the longest
    measured answer used about 900. It is now 2,000, which bounds the worst case.
 
-8. **The evaluation stopped being informative.** The 20-question set scores hit@1 1.00 and
-   MRR 1.00. Rather than claiming a perfect system, the conclusion is that this set is too
-   easy to measure anything; a harder one comes before any retrieval change.
+8. **The evaluation stopped being informative.** The 20-question set scored hit@1 1.00 and
+   MRR 1.00. Rather than claiming a perfect system, I concluded the set was too easy and
+   replaced it: 65 questions over itsdangerous and Flask (ten times more passages),
+   labeled with the exact lines that answer, by category, with a held-out test split. On
+   Flask, vector search alone drops to hit@1 0.63 and MRR 0.71, and to 0.44 for questions
+   in French. Two lessons from reading the misses: tests outrank the code for questions
+   about a name, and one "miss" was my own incomplete label (a documentation page about the
+   very function asked about). [Analysis](../backend/eval/results/README.md).
 
 ## Measurements
 
-On `pallets/itsdangerous` (41 files, 99 passages), with Claude Opus 5.5 at effort
-`medium`:
+Answers on `pallets/itsdangerous` (41 files, 99 passages) with Claude Opus 5.5 at effort
+`medium`; retrieval on `pallets/flask` (216 files, 1,013 passages):
 
 | | |
 |---|---|
 | Answer time | about 10 s (7 to 12 s observed): ~1 s retrieval, ~8 s generation |
 | Tokens per question | 1,800 to 5,800 in, 400 to 900 out |
 | Cost per question | about $0.03; every model call is metered and stored |
-| Retrieval (20 labeled questions) | hit@1 1.00, recall@5 0.96, MRR 1.00 (saturated) |
-| Tests | 460 backend (unit and PostgreSQL integration), 32 frontend; CI on every push |
+| Retrieval on Flask (35 scored questions, line level) | hit@1 0.63, recall@5 0.82, MRR 0.71 |
+| ... by category (MRR) | lookup 0.91, multi-file 0.85, identifier 0.72, paraphrase 0.62, French 0.44 |
+| Tests | 479 backend (unit and PostgreSQL integration), 32 frontend; CI on every push |
 
 ## What I would do next
 
-1. **A harder evaluation set**, with questions spanning several files and questions with
-   no answer, then **hybrid search** (PostgreSQL full text with vectors, fused with RRF)
-   and a **reranker**, each kept only if it improves the numbers.
+1. **Hybrid search** (PostgreSQL full text with vectors, fused with RRF), aimed at exact
+   names, then a **reranker**, then translating non-English questions, each kept only if
+   the dev split improves and the held-out test split confirms it.
 2. **Streaming answers** (server-sent events): sources first, then the text, then the
    server-validated citations.
 3. **A public deployment** on one server: Docker Compose, Caddy for HTTPS, images built by

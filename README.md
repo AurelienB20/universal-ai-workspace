@@ -85,13 +85,26 @@ On [pallets/itsdangerous](https://github.com/pallets/itsdangerous) (41 files, 99
 | Answer latency | ~10 s median, 7–12 s observed (Claude Opus 5.5, effort `medium`) |
 | Tokens per question | 1.8k–5.8k in, 0.4k–0.9k out |
 | Cost per question | ~$0.03 (every call is metered and stored) |
-| Retrieval, 20 labeled questions | hit@1 1.00, recall@5 0.96, MRR 1.00 |
 
-The retrieval scores are saturated: this question set is too easy to measure any
-improvement. A harder evaluation comes first on the roadmap, before hybrid search or
-reranking, so that each change is kept only if it measurably helps.
+**Retrieval** is measured on 65 labeled questions over two repositories, at **line level**
+(a passage counts only if it overlaps the lines that answer), by category, with separate
+dev and test splits. Vector search alone, on
+[pallets/flask](https://github.com/pallets/flask) (216 files, 1,013 passages):
 
-**Tests:** 460 backend tests (unit, and integration against a real PostgreSQL), 32 frontend
+| Questions | hit@1 | recall@5 | MRR |
+|---|---|---|---|
+| All (35 scored) | 0.63 | 0.82 | 0.71 |
+| Asked with the code's words (`lookup`) | 0.88 | 1.00 | 0.91 |
+| Exact names (`identifier`) | 0.62 | 0.94 | 0.72 |
+| Without the code's words (`paraphrase`) | 0.50 | 0.75 | 0.62 |
+| In French (`cross-lingual`) | 0.33 | 0.58 | 0.44 |
+
+The weak spots are where the next changes aim: tests outrank the code for exact names,
+paraphrases miss, French questions rank low. Questions without an answer still reach a
+similarity of 0.49-0.54, so a threshold cannot replace the model's "insufficient context".
+The [analysis](backend/eval/results/README.md) reads the misses one by one.
+
+**Tests:** 479 backend tests (unit, and integration against a real PostgreSQL), 32 frontend
 tests, strict typing (mypy, TypeScript), all run in CI along with both production Docker
 image builds.
 
@@ -135,8 +148,10 @@ server (Caddy, HTTPS, backups), with the same stack CI runs on every push:
   suggested questions.
 - [ ] Public deployment: the stack, backups and checks are ready and tested in CI ([guide](docs/deployment.md)); the server is next.
 - [ ] Streaming answers (server-sent events).
-- [ ] Harder evaluation set, then hybrid search (full text + vectors, RRF), then
-  reranking, each kept only if measured better.
+- [x] **Harder evaluation:** line-level labels, categories, dev and test splits, a recorded
+  baseline and a comparison command.
+- [ ] Hybrid search (full text + vectors, RRF), then reranking, each kept only if the dev
+  split improves and the test split confirms it.
 - [ ] More sources (PostgreSQL, PDF), multi-user workspaces.
 
 ## License
