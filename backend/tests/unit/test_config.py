@@ -50,3 +50,35 @@ def test_database_url_is_hidden_from_repr() -> None:
     settings = Settings(_env_file=None)
 
     assert "uaw:uaw@" not in repr(settings)
+
+
+def test_demo_repositories_are_parsed_from_a_comma_separated_list(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DEMO_REPOSITORIES", " Pallets/Flask, octo/demo ,,")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.demo_repositories == frozenset({"pallets/flask", "octo/demo"})
+
+
+def test_invalid_demo_repository_fails_fast(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DEMO_REPOSITORIES", "https://github.com/pallets/flask")
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+def test_demo_key_requires_an_admin_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DEMO_API_KEY", "demo-key")
+
+    with pytest.raises(ValidationError, match="requires API_KEY"):
+        Settings(_env_file=None)
+
+
+def test_demo_key_must_differ_from_the_admin_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("API_KEY", "same-key")
+    monkeypatch.setenv("DEMO_API_KEY", "same-key")
+
+    with pytest.raises(ValidationError, match="must differ"):
+        Settings(_env_file=None)

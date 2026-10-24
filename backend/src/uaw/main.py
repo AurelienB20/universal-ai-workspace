@@ -12,10 +12,10 @@ from typing import Any
 from fastapi import Depends, FastAPI
 
 from uaw import __version__
-from uaw.api import ask, health, imports, search
+from uaw.api import ask, health, imports, repositories, search
 from uaw.api.middleware import MaxBodySizeMiddleware, RequestContextMiddleware
 from uaw.api.ratelimit import build_rate_limiters
-from uaw.api.security import require_api_key
+from uaw.api.security import authenticate, require_admin
 from uaw.config import Settings, get_settings
 from uaw.logging_config import configure_logging
 from uaw.services import build_services
@@ -48,12 +48,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(RequestContextMiddleware)
 
     app.include_router(health.router)
-    for router in (imports.router, search.router, ask.router):
+    # Admin only: imports spend the embedding budget on any public repository.
+    app.include_router(
+        imports.router,
+        dependencies=[Depends(require_admin)],
+        responses={**PROTECTED_RESPONSES, 403: {"description": "Admin key required."}},
+    )
+    # Demo or admin; a demo key only reaches the DEMO_REPOSITORIES.
+    for router in (repositories.router, search.router, ask.router):
         app.include_router(
-            router, dependencies=[Depends(require_api_key)], responses=PROTECTED_RESPONSES
+            router, dependencies=[Depends(authenticate)], responses=PROTECTED_RESPONSES
         )
 
     if settings.api_key is None:
         logger.warning("API_KEY is not set: the API is open to anyone who can reach it")
+    elif settings.demo_api_key is not None and not settings.demo_repositories:
+        logger.warning("DEMO_API_KEY is set but DEMO_REPOSITORIES is empty: it reaches nothing")
     logger.info("Application created (env=%s)", settings.app_env)
     return app

@@ -1,10 +1,11 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from uaw.api.deps import get_services
 from uaw.api.ratelimit import rate_limited
+from uaw.api.security import RoleDep, ensure_repository_allowed
 from uaw.api.usage import ensure_within_budget, tracked
 from uaw.connectors.github.url import InvalidRepositoryUrlError, parse_github_full_name
 from uaw.embeddings.errors import EmbeddingError
@@ -41,7 +42,9 @@ class SearchRequest(BaseModel):
         503: {"description": "Search is disabled, or the embedding service is unavailable."},
     },
 )
-async def search(body: SearchRequest, services: ServicesDep) -> SearchResult:
+async def search(
+    body: SearchRequest, services: ServicesDep, request: Request, role: RoleDep
+) -> SearchResult:
     """Return the passages of an imported repository closest to the query, best first.
 
     This is retrieval only: no answer is generated.
@@ -50,6 +53,7 @@ async def search(body: SearchRequest, services: ServicesDep) -> SearchResult:
         ref = parse_github_full_name(body.repository)
     except InvalidRepositoryUrlError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
+    ensure_repository_allowed(request, role, ref)
     query = body.query.strip()
     if not query:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail="The query is empty.")

@@ -5,10 +5,12 @@ error instead of surfacing later in the middle of a request.
 """
 
 from functools import lru_cache
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import Field, SecretStr, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+from uaw.connectors.github.url import parse_github_full_name
 
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
 LogFormat = Literal["text", "json"]
@@ -27,9 +29,14 @@ class Settings(BaseSettings):
     # "json": one JSON object per line, for a log collector (production).
     log_format: LogFormat = "text"
 
-    # API protection. Clients send the key in the X-API-Key header. It is required in
-    # production; without it (local development), the API is open.
+    # API protection. Clients send a key in the X-API-Key header. API_KEY is the admin
+    # key (every route); it is required in production. Without it (local development),
+    # the API is open.
     api_key: SecretStr | None = None
+    # Demo key, for a public web interface: questions and searches only, on the
+    # DEMO_REPOSITORIES ("owner/name", comma-separated). Never imports.
+    demo_api_key: SecretStr | None = None
+    demo_repositories: Annotated[frozenset[str], NoDecode] = frozenset()
     # Requests per client IP address, counted in memory by each process. 0 = no limit.
     rate_limit_imports_per_hour: int = Field(default=10, ge=0)
     rate_limit_search_per_minute: int = Field(default=60, ge=0)
@@ -90,12 +97,27 @@ class Settings(BaseSettings):
     answer_top_k: int = Field(default=8, gt=0, le=20)
 
     @field_validator(
-        "api_key", "github_token", "voyage_api_key", "anthropic_api_key", mode="before"
+        "api_key",
+        "demo_api_key",
+        "github_token",
+        "voyage_api_key",
+        "anthropic_api_key",
+        mode="before",
     )
     @classmethod
     def _empty_secret_is_none(cls, value: object) -> object:
         # ``GITHUB_TOKEN=`` in a .env file means "no token", not an empty credential.
         return None if value == "" else value
+
+    @field_validator("demo_repositories", mode="before")
+    @classmethod
+    def _parse_repository_list(cls, value: object) -> object:
+        if isinstance(value, str):
+            value = [item for item in value.split(",") if item.strip()]
+        if isinstance(value, (list, tuple, set, frozenset)):
+            # Lowercase "owner/name": the same identity as the stored repositories.
+            return frozenset(parse_github_full_name(item).full_name.lower() for item in value)
+        return value
 
     @field_validator("database_url")
     @classmethod
@@ -110,6 +132,17 @@ class Settings(BaseSettings):
         # A public server without a key would let anyone spend the provider budgets.
         if self.app_env == "production" and self.api_key is None:
             raise ValueError("API_KEY is required when APP_ENV=production")
+        return self
+
+    @model_validator(mode="after")
+    def _check_demo_key(self) -> Self:
+        if self.demo_api_key is None:
+            return self
+        # Without an admin key the API is open: a demo key would restrict nothing.
+        if self.api_key is None:
+            raise ValueError("DEMO_API_KEY requires API_KEY (the admin key)")
+        if self.demo_api_key.get_secret_value() == self.api_key.get_secret_value():
+            raise ValueError("DEMO_API_KEY must differ from API_KEY")
         return self
 
 

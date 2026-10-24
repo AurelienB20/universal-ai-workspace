@@ -116,8 +116,14 @@ This project is built incrementally. Only what is listed under *Implemented* wor
   - Prompt caching is deliberately not used yet: the stable prefix (instructions) is
     below the minimum cacheable size, and the passages change with every question.
 - Hardening:
-  - API key (`X-API-Key` header) on the routes that spend provider tokens, required
-    when `APP_ENV=production`; constant-time comparison.
+  - API keys (`X-API-Key` header), constant-time comparison. Two roles: the admin key
+    (`API_KEY`, required when `APP_ENV=production`) reaches every route; the demo key
+    (`DEMO_API_KEY`), meant for a public web interface, can only search and ask
+    questions about the `DEMO_REPOSITORIES` and never import (`403`). A repository
+    outside the allowlist gets the same `404` as one never imported, so a demo key
+    reveals nothing else the server holds.
+  - `GET /repositories` lists the searchable repositories (latest ready snapshot,
+    commit, file and passage counts), filtered by the caller's role.
   - Per-client rate limits (token bucket, in memory: one API process) on imports,
     searches and questions, and a request body size limit (413), both returning
     `Retry-After` / clear errors.
@@ -189,7 +195,14 @@ npm run dev                  # http://localhost:3000
 
 ### Use the API directly
 
-When `API_KEY` is set, add `-H "X-API-Key: <key>"` to the requests below.
+When `API_KEY` is set, add `-H "X-API-Key: <key>"` to the requests below (imports
+need the admin key).
+
+List the searchable repositories:
+
+```bash
+curl http://127.0.0.1:8000/repositories
+```
 
 Import a repository and follow its progress:
 

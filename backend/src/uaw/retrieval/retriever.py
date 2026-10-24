@@ -22,6 +22,12 @@ class RetrievalError(Exception):
 class RepositoryNotIndexedError(RetrievalError):
     """The repository has no searchable snapshot (never imported, or still indexing)."""
 
+    @classmethod
+    def for_repository(cls, repository: GitHubRepoRef) -> "RepositoryNotIndexedError":
+        return cls(
+            f"{repository.full_name} has not been imported yet, or its import is not finished."
+        )
+
 
 class EmbeddingModelMismatchError(RetrievalError):
     """The snapshot was embedded with another model than the one configured now."""
@@ -65,9 +71,7 @@ class Retriever:
         async with self._sessions() as session:
             snapshot = await ChunkSearch(session).latest_ready_snapshot(repository.full_name)
         if snapshot is None:
-            raise RepositoryNotIndexedError(
-                f"{repository.full_name} has not been imported yet, or its import is not finished."
-            )
+            raise RepositoryNotIndexedError.for_repository(repository)
         # Vectors from two different models live in unrelated spaces: comparing them
         # would silently return meaningless results.
         if snapshot.embedding_model != self._embedder.model:
