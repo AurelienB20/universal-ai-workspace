@@ -5,6 +5,7 @@ import {
   MAX_BODY_BYTES,
   clientAddress,
   forward,
+  forwardStream,
   importsEnabled,
   suggestionsPath,
 } from "./backend";
@@ -86,6 +87,71 @@ describe("forward", () => {
     const response = await forward(post("{}"), "/ask", CONFIG, fetchImpl);
 
     expect(response.status).toBe(502);
+  });
+});
+
+describe("forwardStream", () => {
+  function eventStream(chunks: string[]): ReadableStream<Uint8Array> {
+    const encoder = new TextEncoder();
+    return new ReadableStream({
+      start(controller) {
+        for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+        controller.close();
+      },
+    });
+  }
+
+  it("passes the events on unbuffered, with the key and the client's abort signal", async () => {
+    const events = "event: sources\ndata: {}\n\nevent: done\ndata: {}\n\n";
+    const body = eventStream([events.slice(0, 20), events.slice(20)]);
+    const fetchImpl = backendReturning(
+      new Response(body, {
+        headers: { "content-type": "text/event-stream", "x-request-id": "abc" },
+      }),
+    );
+    const browser = new AbortController();
+    const request = new Request("http://front/api/ask/stream", {
+      method: "POST",
+      body: "{}",
+      signal: browser.signal,
+    });
+
+    const response = await forwardStream(request, "/ask/stream", CONFIG, fetchImpl);
+
+    // The backend's body itself, not a copy read to the end.
+    expect(response.body).toBe(body);
+    expect(response.headers.get("content-type")).toBe("text/event-stream");
+    expect(response.headers.get("cache-control")).toBe("no-cache, no-transform");
+    expect(response.headers.get("x-request-id")).toBe("abc");
+    expect(await response.text()).toBe(events);
+
+    const init = fetchImpl.mock.calls[0][1];
+    expect(new Headers(init?.headers).get("x-api-key")).toBe("server-key");
+    expect(new Headers(init?.headers).get("accept")).toBe("text/event-stream");
+    // Leaving the page aborts the backend request, which stops the answer.
+    expect(init?.signal?.aborted).toBe(false);
+    browser.abort();
+    expect(init?.signal?.aborted).toBe(true);
+  });
+
+  it("returns errors found before the stream as JSON", async () => {
+    const fetchImpl = backendReturning(
+      Response.json({ detail: "Busy." }, { status: 503, headers: { "retry-after": "5" } }),
+    );
+
+    const response = await forwardStream(post("{}"), "/ask/stream", CONFIG, fetchImpl);
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("retry-after")).toBe("5");
+    expect(await response.json()).toEqual({ detail: "Busy." });
+  });
+
+  it("reports an unreachable backend as 502", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => {
+      throw new TypeError("fetch failed");
+    });
+
+    expect((await forwardStream(post("{}"), "/ask/stream", CONFIG, fetchImpl)).status).toBe(502);
   });
 });
 

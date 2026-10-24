@@ -19,24 +19,6 @@ interface Props {
 
 export function AnswerView({ answer, cachedAt }: Props) {
   const { t } = useLanguage();
-  const byId = new Map(answer.citations.map((citation) => [citation.id, citation]));
-
-  // The answer derives from untrusted repository content: raw HTML is not rendered
-  // (react-markdown escapes it) and links open in a new tab without a referrer.
-  const components: Components = {
-    a({ href, children }) {
-      const label = typeof children === "string" ? children : null;
-      const citation = label !== null && CITATION_ID.test(label) ? byId.get(label) : undefined;
-      if (citation && citation.url === href) {
-        return <CitationChip citation={citation} />;
-      }
-      return (
-        <a href={href} target="_blank" rel="noopener noreferrer nofollow" className="link">
-          {children}
-        </a>
-      );
-    },
-  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -50,11 +32,7 @@ export function AnswerView({ answer, cachedAt }: Props) {
       )}
       {answer.insufficient_context && <p className="notice">{t.insufficientContext}</p>}
 
-      <div className="markdown">
-        <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-          {linkCitations(answer.answer, answer.citations)}
-        </ReactMarkdown>
-      </div>
+      <AnswerMarkdown markdown={answer.answer} citations={answer.citations} />
 
       {answer.citations.length > 0 && (
         <div>
@@ -86,6 +64,46 @@ export function AnswerView({ answer, cachedAt }: Props) {
       )}
 
       {answer.trace && answer.trace.passages.length > 0 && <EvidencePanel trace={answer.trace} />}
+    </div>
+  );
+}
+
+/**
+ * An answer's Markdown, with each [Sn] marker of a known citation shown as a link to
+ * the cited lines. Also renders the draft of a streamed answer, whose markers are not
+ * checked yet: a marker that matches no retrieved passage stays plain text.
+ */
+export function AnswerMarkdown({
+  markdown,
+  citations,
+}: {
+  markdown: string;
+  citations: readonly Citation[];
+}) {
+  const byId = new Map(citations.map((citation) => [citation.id, citation]));
+
+  // The answer derives from untrusted repository content: raw HTML is not rendered
+  // (react-markdown escapes it) and links open in a new tab without a referrer.
+  const components: Components = {
+    a({ href, children }) {
+      const label = typeof children === "string" ? children : null;
+      const citation = label !== null && CITATION_ID.test(label) ? byId.get(label) : undefined;
+      if (citation && citation.url === href) {
+        return <CitationChip citation={citation} />;
+      }
+      return (
+        <a href={href} target="_blank" rel="noopener noreferrer nofollow" className="link">
+          {children}
+        </a>
+      );
+    },
+  };
+
+  return (
+    <div className="markdown">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+        {linkCitations(markdown, citations)}
+      </ReactMarkdown>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { ApiError } from "@/lib/api";
+import { ApiError, STREAM_INTERRUPTED } from "@/lib/api";
 
 import type { Messages } from "./messages";
 
@@ -7,7 +7,7 @@ export function errorMessage(error: unknown, t: Messages, action: "import" | "as
   if (!(error instanceof ApiError)) return t.errors.unexpected(0);
   switch (error.status) {
     case 0:
-      return t.errors.network;
+      return error.detail === STREAM_INTERRUPTED ? t.errors.interrupted : t.errors.network;
     case 401:
       return t.errors.unauthorized;
     case 403:

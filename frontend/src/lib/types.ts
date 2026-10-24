@@ -30,7 +30,7 @@ export interface Citation {
 }
 
 // A passage shown to the model, in retrieval order.
-export interface RetrievedPassage {
+export interface Passage {
   id: string;
   path: string;
   start_line: number;
@@ -40,6 +40,9 @@ export interface RetrievedPassage {
   score: number; // cosine similarity with the question
   rerank_score?: number | null; // relevance from the reranker, when one ordered them
   url: string;
+}
+
+export interface RetrievedPassage extends Passage {
   cited: boolean;
 }
 
@@ -61,6 +64,13 @@ export interface Answer {
   citations: Citation[];
   model: string | null;
   trace?: AnswerTrace | null; // absent from answers cached before traces existed
+}
+
+// First event of a streamed answer (POST /ask/stream): the passages it is written from.
+export interface SourcesFound {
+  repository: string;
+  commit_sha: string;
+  passages: Passage[];
 }
 
 // backend/src/uaw/storage/repositories.py

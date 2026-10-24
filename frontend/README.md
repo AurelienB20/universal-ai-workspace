@@ -4,7 +4,7 @@ Next.js (App Router), TypeScript, Tailwind CSS. French by default, English avail
 (language switch, remembered in the browser).
 
 ```
-Browser ──► Next.js server (/api/repositories, /api/ask, /api/imports...) ──► FastAPI
+Browser ──► Next.js server (/api/repositories, /api/ask/stream, /api/imports...) ──► FastAPI
               adds X-API-Key (server-side variable), forwards the client address
 ```
 

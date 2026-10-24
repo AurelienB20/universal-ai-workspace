@@ -49,33 +49,81 @@ export async function forward(
   config: BackendConfig = backendConfig(),
   fetchImpl: typeof fetch = fetch,
 ): Promise<Response> {
+  const sent = await send(request, path, config, fetchImpl, "application/json");
+  if ("error" in sent) return sent.error;
+  const { response } = sent;
+  return new Response(await response.text(), {
+    status: response.status,
+    headers: passedHeaders(response),
+  });
+}
+
+/**
+ * Like ``forward``, for a backend route that answers with server-sent events: the
+ * events are passed on as they arrive, never buffered. When the browser goes away,
+ * the backend request is aborted too, which stops the answer being written.
+ */
+export async function forwardStream(
+  request: Request,
+  path: string,
+  config: BackendConfig = backendConfig(),
+  fetchImpl: typeof fetch = fetch,
+): Promise<Response> {
+  const sent = await send(request, path, config, fetchImpl, "text/event-stream", request.signal);
+  if ("error" in sent) return sent.error;
+  const { response } = sent;
+  const headers = passedHeaders(response);
+  if (!response.ok || !headers.get("content-type")?.startsWith("text/event-stream")) {
+    // An error found before the answer started: JSON, as with ``forward``.
+    return new Response(await response.text(), { status: response.status, headers });
+  }
+  // no-transform: no compression, which would hold the events back.
+  headers.set("cache-control", "no-cache, no-transform");
+  headers.set("x-accel-buffering", "no");
+  return new Response(response.body, { status: response.status, headers });
+}
+
+// The backend's response, or the error to return when there is none.
+type Sent = { response: Response } | { error: Response };
+
+async function send(
+  request: Request,
+  path: string,
+  config: BackendConfig,
+  fetchImpl: typeof fetch,
+  accept: string,
+  clientSignal?: AbortSignal,
+): Promise<Sent> {
   let body: string | undefined;
   if (request.method !== "GET") {
     body = await request.text();
     if (new TextEncoder().encode(body).length > MAX_BODY_BYTES) {
-      return jsonError(413, "Request body too large.");
+      return { error: jsonError(413, "Request body too large.") };
     }
   }
 
-  const headers = new Headers({ accept: "application/json" });
+  const headers = new Headers({ accept });
   if (body !== undefined) headers.set("content-type", "application/json");
   if (config.apiKey) headers.set("x-api-key", config.apiKey);
   const client = clientAddress(request.headers);
   if (client) headers.set("x-forwarded-for", client);
 
-  let response: Response;
+  const timeout = AbortSignal.timeout(TIMEOUT_MS);
   try {
-    response = await fetchImpl(`${config.url}${path}`, {
+    const response = await fetchImpl(`${config.url}${path}`, {
       method: request.method,
       headers,
       body,
       cache: "no-store",
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: clientSignal ? AbortSignal.any([clientSignal, timeout]) : timeout,
     });
+    return { response };
   } catch {
-    return jsonError(502, "The backend is unreachable.");
+    return { error: jsonError(502, "The backend is unreachable.") };
   }
+}
 
+function passedHeaders(response: Response): Headers {
   const passed = new Headers({
     "content-type": response.headers.get("content-type") ?? "application/json",
   });
@@ -83,7 +131,7 @@ export async function forward(
     const value = response.headers.get(name);
     if (value) passed.set(name, value);
   }
-  return new Response(await response.text(), { status: response.status, headers: passed });
+  return passed;
 }
 
 /**

@@ -47,7 +47,10 @@ const fr = {
   questionPlaceholder: "Ex. : Comment les signatures sont-elles vérifiées ?",
   askButton: "Demander",
   askHint: "Ctrl + Entrée pour envoyer",
-  thinking: (seconds: number) => `Recherche et rédaction de la réponse… ${seconds} s`,
+  searching: (seconds: number) => `Recherche des passages… ${seconds} s`,
+  writing: (passages: number, seconds: number) =>
+    `${passages} passage${passages > 1 ? "s" : ""} trouvé${passages > 1 ? "s" : ""} · rédaction de la réponse… ${seconds} s`,
+  draftNotice: "Brouillon en cours d'écriture : le serveur vérifie les citations à la fin.",
   sources: "Sources",
   insufficientContext:
     "Contexte insuffisant : les passages trouvés ne permettent pas de répondre complètement.",
@@ -80,6 +83,7 @@ const fr = {
 
   errors: {
     network: "Impossible de joindre le serveur de l'interface.",
+    interrupted: "La connexion a été coupée avant la fin de la réponse. Reposez la question.",
     unauthorized: "Le serveur de l'interface n'a pas la bonne clé d'API (API_KEY).",
     forbidden: "Cette action n'est pas disponible sur cette démo.",
     invalidUrl:
@@ -149,7 +153,10 @@ const en: Messages = {
   questionPlaceholder: "E.g. How are signatures verified?",
   askButton: "Ask",
   askHint: "Ctrl + Enter to send",
-  thinking: (seconds) => `Searching and writing the answer… ${seconds} s`,
+  searching: (seconds) => `Searching the passages… ${seconds} s`,
+  writing: (passages, seconds) =>
+    `${passages} passage${passages === 1 ? "" : "s"} found · writing the answer… ${seconds} s`,
+  draftNotice: "Draft being written: the server checks the citations at the end.",
   sources: "Sources",
   insufficientContext:
     "Insufficient context: the passages found do not fully answer the question.",
@@ -180,6 +187,7 @@ const en: Messages = {
 
   errors: {
     network: "Cannot reach the interface server.",
+    interrupted: "The connection was cut before the answer was complete. Ask again.",
     unauthorized: "The interface server does not have the right API key (API_KEY).",
     forbidden: "This action is not available on this demo.",
     invalidUrl:

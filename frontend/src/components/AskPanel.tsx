@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 
 import { errorMessage } from "@/i18n/errors";
 import { useLanguage } from "@/i18n/language";
-import { ask, getSuggestions } from "@/lib/api";
-import type { Answer, CachedAnswer } from "@/lib/types";
+import { askStream, getSuggestions } from "@/lib/api";
+import type { Answer, CachedAnswer, Passage } from "@/lib/types";
 
-import { AnswerView } from "./AnswerView";
+import { AnswerMarkdown, AnswerView } from "./AnswerView";
 
 const MAX_QUESTION_CHARS = 2000; // same limit as the backend
 
@@ -21,14 +21,25 @@ interface Exchange {
   error?: unknown;
 }
 
+// An answer being written: its passages once found, and the unchecked draft.
+interface PendingAnswer {
+  id: number;
+  question: string;
+  passages: Passage[] | null;
+  draft: string;
+}
+
 export function AskPanel({ repository }: { repository: string }) {
   const { t, language } = useLanguage();
   const [question, setQuestion] = useState("");
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
-  const [pending, setPending] = useState<Exchange | null>(null);
+  const [pending, setPending] = useState<PendingAnswer | null>(null);
   const [suggestions, setSuggestions] = useState<CachedAnswer[]>([]);
   // Exchange keys: a suggestion can be shown several times.
   const nextId = useRef(0);
+  // Leaving the panel stops the answer being written (and billed).
+  const inFlight = useRef<AbortController | null>(null);
+  useEffect(() => () => inFlight.current?.abort(), []);
 
   // Suggestions are optional: any failure simply shows none.
   useEffect(() => {
@@ -55,14 +66,32 @@ export function AskPanel({ repository }: { repository: string }) {
     const text = question.trim();
     if (!text || pending) return;
     const exchange: Exchange = { id: nextId.current++, question: text };
-    setPending(exchange);
+    setPending({ ...exchange, passages: null, draft: "" });
+    const controller = new AbortController();
+    inFlight.current = controller;
+    const update = (change: (answer: PendingAnswer) => PendingAnswer) =>
+      setPending((current) => (current?.id === exchange.id ? change(current) : current));
     let done: Exchange;
     try {
-      done = { ...exchange, answer: await ask(repository, text) };
+      const answer = await askStream(
+        repository,
+        text,
+        {
+          onSources: (sources) => update((current) => ({ ...current, passages: sources.passages })),
+          onDelta: (delta) => update((current) => ({ ...current, draft: current.draft + delta })),
+          onReset: () => update((current) => ({ ...current, draft: "" })),
+        },
+        controller.signal,
+      );
+      done = { ...exchange, answer };
       setQuestion("");
     } catch (caught) {
+      if (controller.signal.aborted) return; // the panel is gone
       done = { ...exchange, error: caught };
+    } finally {
+      if (inFlight.current === controller) inFlight.current = null;
     }
+    // The checked answer replaces the draft.
     setPending(null);
     setExchanges((previous) => [done, ...previous]); // newest first
   }
@@ -126,7 +155,7 @@ export function AskPanel({ repository }: { repository: string }) {
       </form>
 
       <div className="mt-4 flex flex-col gap-4">
-        {pending && <PendingExchange question={pending.question} />}
+        {pending && <PendingExchange answer={pending} />}
         {exchanges.map((exchange) => (
           <article key={exchange.id} className="exchange">
             <p className="question">{exchange.question}</p>
@@ -144,7 +173,7 @@ export function AskPanel({ repository }: { repository: string }) {
   );
 }
 
-function PendingExchange({ question }: { question: string }) {
+function PendingExchange({ answer }: { answer: PendingAnswer }) {
   const { t } = useLanguage();
   const [seconds, setSeconds] = useState(0);
 
@@ -155,10 +184,18 @@ function PendingExchange({ question }: { question: string }) {
 
   return (
     <article className="exchange" aria-busy="true">
-      <p className="question">{question}</p>
+      <p className="question">{answer.question}</p>
       <p className="animate-pulse text-sm text-zinc-500" aria-live="polite">
-        {t.thinking(seconds)}
+        {answer.passages === null
+          ? t.searching(seconds)
+          : t.writing(answer.passages.length, seconds)}
       </p>
+      {answer.draft && answer.passages && (
+        <div className="flex flex-col gap-2">
+          <AnswerMarkdown markdown={answer.draft} citations={answer.passages} />
+          <p className="text-xs text-zinc-500">{t.draftNotice}</p>
+        </div>
+      )}
     </article>
   );
 }
