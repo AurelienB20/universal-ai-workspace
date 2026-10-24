@@ -110,3 +110,35 @@ async def test_unknown_repository_is_404(client: httpx.AsyncClient, model: FakeA
 
     assert response.status_code == 404
     assert model.calls == []
+
+
+async def test_answer_explains_its_evidence(
+    client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    async with session_factory.begin() as session:
+        await add_snapshot(
+            session,
+            files={
+                "src/auth.py": [vector((0, 1.0))],
+                "src/util.py": [vector((0, 1.0), (1, 1.0))],
+                "src/far.py": [vector((1, 1.0))],  # not in the top 2
+            },
+        )
+
+    response = await client.post(
+        "/ask", json={"repository": "octo/demo", "question": "Where are tokens checked?"}
+    )
+
+    trace = response.json()["trace"]
+    # Every passage shown to the model, best first, and whether the answer uses it.
+    assert [(p["id"], p["path"], p["cited"]) for p in trace["passages"]] == [
+        ("S1", "src/auth.py", True),
+        ("S2", "src/util.py", False),
+    ]
+    assert trace["passages"][0]["content"] == "line 0\n"
+    assert trace["passages"][0]["score"] > trace["passages"][1]["score"]
+    # The model cited S3, which it was never given: removed, and reported.
+    assert trace["removed_citations"] == ["S3"]
+    assert (trace["input_tokens"], trace["output_tokens"]) == (100, 20)
+    assert trace["retrieval_ms"] >= 0
+    assert trace["generation_ms"] >= 0

@@ -116,6 +116,11 @@ overview, see the [README](../README.md).
     user-facing messages; rate limits and server errors are retried by the SDK.
   - Prompt caching is deliberately not used yet: the stable prefix (instructions) is
     below the minimum cacheable size, and the passages change with every question.
+  - Every answer carries its `trace`: each passage shown to the model (path, lines,
+    content, similarity score, whether the answer cites it), the citations removed
+    because the model invented them, the retrieval and generation times, and the
+    tokens. All of it is known while answering, so it costs nothing extra. Answers
+    cached before traces existed load with `trace: null`.
 - Hardening:
   - API keys (`X-API-Key` header), constant-time comparison. Two roles: the admin key
     (`API_KEY`, required when `APP_ENV=production`) reaches every route; the demo key
