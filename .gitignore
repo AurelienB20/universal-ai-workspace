@@ -3,6 +3,10 @@
 .env.*
 !.env.example
 
+# Database backups (deploy/backup.sh)
+deploy/backups/
+*.dump
+
 # Python
 __pycache__/
 *.py[cod]

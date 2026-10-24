@@ -1,0 +1,125 @@
+# Production stack on one server: Caddy (HTTPS) -> web (Next.js) -> api (FastAPI) -> db.
+#   cp .env.example .env   # then fill in every value
+#   docker compose -f docker-compose.prod.yml up -d --wait
+# See docs/deployment.md.
+#
+# Networks are the trust boundaries: Caddy only reaches the web server, the web server
+# reaches the API, and only the API reaches the database. Nothing but Caddy listens on
+# a public port; the API also listens on 127.0.0.1 for admin tasks on the server itself.
+
+name: uaw
+
+x-logging: &logging
+  # A small server's disk must not fill up with logs.
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-backend: &backend
+  image: ${BACKEND_IMAGE:-ghcr.io/aurelienb20/uaw-backend:latest}
+  env_file: .env
+  environment: &backend-environment
+    APP_ENV: production
+    DATABASE_URL: postgresql+asyncpg://uaw:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/uaw
+  networks: [internal]
+  logging: *logging
+
+services:
+  db:
+    image: pgvector/pgvector:0.8.1-pg16
+    environment:
+      POSTGRES_USER: uaw
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: uaw
+    # Sized for a 2-4 GB server shared with the API and the web server.
+    command: postgres -c shared_buffers=256MB -c max_connections=40
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uaw -d uaw"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+    logging: *logging
+
+  # Applies the database migrations, then exits. The API starts only once it succeeded.
+  migrate:
+    <<: *backend
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *backend
+    environment:
+      <<: *backend-environment
+      # Only the web server can reach the API (internal network), and it forwards the
+      # visitor's address: trust X-Forwarded-For from this network.
+      FORWARDED_ALLOW_IPS: "*"
+    ports:
+      # Admin tasks (imports, suggestions) from the server itself; never public.
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  web:
+    image: ${FRONTEND_IMAGE:-ghcr.io/aurelienb20/uaw-frontend:latest}
+    environment:
+      API_URL: http://api:8000
+      # The demo key, never the admin key: visitors can only question the
+      # DEMO_REPOSITORIES, and the import panel is removed.
+      API_KEY: ${DEMO_API_KEY:?set DEMO_API_KEY in .env}
+      IMPORTS_ENABLED: "false"
+    networks: [internal, edge]
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/config').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
+
+  caddy:
+    image: caddy:2.10.0-alpine
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates: kept across restarts, or Let's Encrypt rate limits apply.
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
+
+networks:
+  # Not "internal: true" (no outside access): the API calls GitHub, Voyage and Anthropic.
+  # What matters is that no public port leads to it.
+  internal:
+  edge:
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

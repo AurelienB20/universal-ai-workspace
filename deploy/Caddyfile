@@ -1,0 +1,17 @@
+# HTTPS in front of the web interface. Caddy obtains and renews the certificate
+# (Let's Encrypt) for DOMAIN; with DOMAIN=localhost it uses its own local authority.
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		# HTTPS only, for a year, once a visitor has seen the site over HTTPS. Not
+		# "preload" or "includeSubDomains": the domain may host other things later.
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	# Caddy sets X-Forwarded-For to the visitor's address; the web server forwards it
+	# to the API, whose rate limits then apply per visitor.
+	reverse_proxy web:3000
+}

@@ -1,5 +1,5 @@
-# Lint, type-check and test the backend and the frontend, and check that their
-# Docker images build.
+# Lint, type-check and test the backend and the frontend; build both Docker images and
+# run the production stack with them; publish the images from main.
 # No API key is needed: tests against the real GitHub, Voyage and Anthropic APIs
 # (-m live) are not run here.
 name: CI
@@ -81,20 +81,96 @@ jobs:
       - name: Build
         run: npm run build
 
-  docker:
+  # Builds both images and runs the real production stack (deploy/), with test values
+  # and no provider keys: HTTPS, security headers, the demo restrictions, and a backup
+  # that is actually restored.
+  deploy:
+    name: production stack
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: deploy
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - name: Build the backend image
+        uses: docker/build-push-action@v7
+        with:
+          context: backend
+          load: true
+          tags: uaw-backend:ci
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+      - name: Build the frontend image
+        uses: docker/build-push-action@v7
+        with:
+          context: frontend
+          load: true
+          tags: uaw-frontend:ci
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+      - name: Configure the stack (test values only)
+        run: |
+          cat > .env <<'EOF'
+          DOMAIN=localhost
+          POSTGRES_PASSWORD=ci-database-password
+          API_KEY=ci-admin-key
+          DEMO_API_KEY=ci-demo-key
+          DEMO_REPOSITORIES=pallets/itsdangerous
+          DAILY_LLM_TOKEN_BUDGET=1000000
+          DAILY_EMBEDDING_TOKEN_BUDGET=5000000
+          BACKEND_IMAGE=uaw-backend:ci
+          FRONTEND_IMAGE=uaw-frontend:ci
+          EOF
+      - name: Start the stack
+        run: docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 240
+      - name: Smoke tests
+        run: INSECURE=1 ./smoke-test.sh https://localhost
+      - name: Back up, then restore into a separate database
+        run: |
+          docker compose -f docker-compose.prod.yml exec -T db psql -U uaw -d uaw -v ON_ERROR_STOP=1 -c "
+            INSERT INTO repositories (id, key, owner, name, default_branch)
+              VALUES (gen_random_uuid(), 'octo/demo', 'octo', 'demo', 'main');
+            INSERT INTO usage_records (id, operation, repository, provider, model, requests, input_tokens, output_tokens)
+              VALUES (gen_random_uuid(), 'ask', 'octo/demo', 'anthropic', 'm', 1, 100, 20);"
+          file=$(./backup.sh)
+          ./restore.sh "$file" | tee restore.txt
+          # Every table: restored count = live count, and the seeded rows are there.
+          awk -F'|' 'NF == 3 && $2 != $3 { print "mismatch: " $0; bad = 1 } END { exit bad }' restore.txt
+          grep -qx 'repositories|1|1' restore.txt
+          grep -qx 'usage_records|1|1' restore.txt
+      - name: Logs
+        if: failure()
+        run: docker compose -f docker-compose.prod.yml logs --no-color
+
+  # Images for the server: published only from main, once everything above passed.
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [backend, frontend, deploy]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
     strategy:
       matrix:
         image: [backend, frontend]
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4
-      - name: Build the ${{ matrix.image }} image (not pushed)
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish the ${{ matrix.image }} image
         uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.image }}
-          push: false
-          tags: uaw-${{ matrix.image }}:ci
+          push: true
+          tags: |
+            ghcr.io/aurelienb20/uaw-${{ matrix.image }}:latest
+            ghcr.io/aurelienb20/uaw-${{ matrix.image }}:${{ github.sha }}
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
           cache-from: type=gha,scope=${{ matrix.image }}
-          cache-to: type=gha,scope=${{ matrix.image }},mode=max
