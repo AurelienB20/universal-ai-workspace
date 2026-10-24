@@ -9,6 +9,7 @@ Deleting a parent deletes its children (``ON DELETE CASCADE``).
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
@@ -26,6 +27,7 @@ from sqlalchemy import (
     func,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 # voyage-code-3 default output size. Changing it requires a migration and re-embedding.
@@ -205,3 +207,28 @@ class BudgetReservationRow(Base):
     provider: Mapped[str] = mapped_column(String(20))
     tokens: Mapped[int] = mapped_column(BigInteger)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class CachedAnswerRow(Base):
+    """A suggested question with its answer, generated once (admin) and then served to
+    every visitor without any model call. Tied to the snapshot it was answered from:
+    deleting the snapshot deletes it, so a cached answer never outlives its sources."""
+
+    __tablename__ = "cached_answers"
+    __table_args__ = (
+        UniqueConstraint("snapshot_id", "language", "position"),
+        CheckConstraint("language IN ('fr', 'en')", name="language"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    snapshot_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("snapshots.id", ondelete="CASCADE"))
+    # Language of the interface the question is suggested in.
+    language: Mapped[str] = mapped_column(String(2))
+    # Display order of the suggestions (0, 1, 2...).
+    position: Mapped[int]
+    question: Mapped[str] = mapped_column(Text)
+    # The full answer as returned by POST /ask (text, citations, commit, model).
+    answer: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    generated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

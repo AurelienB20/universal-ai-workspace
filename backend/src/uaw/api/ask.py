@@ -8,7 +8,11 @@ from uaw.api.ratelimit import ConcurrencyLimiter, rate_limited
 from uaw.api.security import RoleDep, ensure_repository_allowed
 from uaw.api.usage import reserved, tracked
 from uaw.config import Settings
-from uaw.connectors.github.url import InvalidRepositoryUrlError, parse_github_full_name
+from uaw.connectors.github.url import (
+    GitHubRepoRef,
+    InvalidRepositoryUrlError,
+    parse_github_full_name,
+)
 from uaw.embeddings.errors import EmbeddingError
 from uaw.generation.answerer import Answer
 from uaw.generation.errors import GenerationError, GenerationRefusedError
@@ -59,6 +63,17 @@ async def ask(body: AskRequest, services: ServicesDep, request: Request, role: R
     question = body.question.strip()
     if not question:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail="The question is empty.")
+    return await generate_answer(services, request, ref, question)
+
+
+async def generate_answer(
+    services: Services, request: Request, ref: GitHubRepoRef, question: str
+) -> Answer:
+    """Answer ``question`` within the concurrency limit and the daily budgets, and
+    record its usage. Errors are translated into HTTP responses.
+
+    Shared by POST /ask and the generation of cached answers.
+    """
     if services.answerer is None:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,

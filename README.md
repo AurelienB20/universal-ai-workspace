@@ -78,6 +78,12 @@ This project is built incrementally. Only what is listed under *Implemented* wor
   - Once a new snapshot is ready, older ones are deleted in the same transaction,
     keeping the `KEEP_SNAPSHOTS` (default 2) most recent: a question still reading the
     previous snapshot is not cut short. Interrupted leftovers go too.
+  - Suggested questions with cached answers: `PUT /repositories/{owner}/{name}/suggestions`
+    (admin) answers up to 6 questions now, through the same path as `/ask` (budget,
+    concurrency, usage), and stores the answers for the latest snapshot, all or
+    nothing. `GET` serves them to any allowed key with no model call. Each answer
+    keeps its commit, model and generation date, so the interface can say it is
+    cached; it is deleted with its snapshot, so it never outlives its sources.
   - `DELETE /repositories/{owner}/{name}` (admin) deletes a repository with all its
     snapshots, refused (`409`) while an import of it is queued or running. Token usage
     records are kept, since that usage was billed.
@@ -235,6 +241,14 @@ Ask a question (needs `ANTHROPIC_API_KEY` too):
 ```bash
 curl -X POST http://127.0.0.1:8000/ask -H "content-type: application/json" \
   -d '{"repository": "pallets/itsdangerous", "question": "How are expired tokens detected?"}'
+```
+
+Cache suggested questions with their answers (admin key; billed once, like `/ask`),
+then read them for free:
+
+```bash
+curl -X PUT http://127.0.0.1:8000/repositories/pallets/itsdangerous/suggestions   -H "content-type: application/json"   -d '{"language": "en", "questions": ["How are expired tokens detected?"]}'
+curl "http://127.0.0.1:8000/repositories/pallets/itsdangerous/suggestions?language=en"
 ```
 
 ### Measure retrieval quality
