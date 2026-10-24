@@ -56,6 +56,14 @@ class JobStore:
         row = await self._session.get(IngestionJobRow, job_id, populate_existing=True)
         return _to_job(row) if row is not None else None
 
+    async def has_active(self, repository: str) -> bool:
+        """Whether an import of ``repository`` ("owner/name", any case) is queued or running."""
+        stmt = select(IngestionJobRow.id).where(
+            IngestionJobRow.repository_key == repository.lower(),
+            IngestionJobRow.status.in_(ACTIVE_JOB_STATUSES),
+        )
+        return await self._session.scalar(stmt.exists().select()) or False
+
     async def mark_running(self, job_id: uuid.UUID) -> None:
         await self._update(
             job_id, status=JobStatus.RUNNING, stage=JobStage.FETCHING, started_at=func.now()

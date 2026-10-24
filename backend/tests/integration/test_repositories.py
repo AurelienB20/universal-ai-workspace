@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator
 import httpx2 as httpx
 import pytest
 from pydantic import SecretStr
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from tests.integration.test_search import SHA_NEW, SHA_OLD, add_snapshot, vector
@@ -13,6 +14,10 @@ from uaw.config import Settings
 from uaw.connectors.github.url import GitHubRepoRef
 from uaw.main import create_app
 from uaw.services import Services
+from uaw.storage.jobs import JobStore
+from uaw.storage.models import ChunkRow, RepositoryRow, UsageRecordRow
+from uaw.storage.usage import UsageStore
+from uaw.usage.meter import ModelUsage
 
 pytestmark = [pytest.mark.db, pytest.mark.anyio]
 
@@ -93,3 +98,66 @@ async def test_empty_database_lists_nothing(client: httpx.AsyncClient) -> None:
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+ADMIN = {"X-API-Key": "admin-key"}
+
+
+async def count(session_factory: async_sessionmaker[AsyncSession], table: type[object]) -> int:
+    async with session_factory() as session:
+        return (await session.execute(select(func.count()).select_from(table))).scalar_one()
+
+
+async def test_admin_deletes_a_repository_with_everything_in_it(
+    client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    await add_repositories(session_factory)
+    async with session_factory.begin() as session:
+        await UsageStore(session).add(
+            "ask", "Octo/Alpha", [ModelUsage("anthropic", "m", 1, 100, 20)]
+        )
+
+    response = await client.delete("/repositories/octo/ALPHA", headers=ADMIN)
+
+    assert response.status_code == 204
+    listed = await client.get("/repositories", headers=ADMIN)
+    assert [item["repository"] for item in listed.json()] == ["octo/beta"]
+    # Only beta's and gamma's chunks are left; the billed usage is kept.
+    assert await count(session_factory, ChunkRow) == 2
+    assert await count(session_factory, UsageRecordRow) == 1
+
+
+async def test_deleting_during_an_import_is_refused(
+    client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    await add_repositories(session_factory)
+    async with session_factory.begin() as session:
+        await JobStore(session).create_or_get_active("octo/alpha")
+
+    response = await client.delete("/repositories/Octo/Alpha", headers=ADMIN)
+
+    assert response.status_code == 409
+    assert await count(session_factory, RepositoryRow) == 3
+
+
+async def test_deleting_an_unknown_repository_is_404(client: httpx.AsyncClient) -> None:
+    response = await client.delete("/repositories/octo/nothing", headers=ADMIN)
+
+    assert response.status_code == 404
+
+
+async def test_demo_key_cannot_delete(
+    client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    await add_repositories(session_factory)
+
+    response = await client.delete("/repositories/octo/alpha", headers={"X-API-Key": "demo-key"})
+
+    assert response.status_code == 403
+    assert await count(session_factory, RepositoryRow) == 3
+
+
+async def test_invalid_repository_name_is_422(client: httpx.AsyncClient) -> None:
+    response = await client.delete("/repositories/not_an_owner/repo", headers=ADMIN)
+
+    assert response.status_code == 422

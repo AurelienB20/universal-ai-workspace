@@ -84,6 +84,7 @@ async def build_services(settings: Settings, stack: AsyncExitStack) -> Services:
         build_github_connector(settings, github_http),
         embedder,
         embed_batch_size=settings.embedding_batch_size,
+        keep_snapshots=settings.keep_snapshots,
     )
     runner = IngestionRunner(pipeline, max_concurrent=settings.max_concurrent_imports, usage=usage)
     stack.push_async_callback(runner.shutdown)

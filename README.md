@@ -75,6 +75,12 @@ This project is built incrementally. Only what is listed under *Implemented* wor
     no transaction held open during API calls). The snapshot becomes `ready`, and
     therefore searchable, only once every chunk has its vector.
   - Re-importing an already indexed commit reuses its snapshot without any API call.
+  - Once a new snapshot is ready, older ones are deleted in the same transaction,
+    keeping the `KEEP_SNAPSHOTS` (default 2) most recent: a question still reading the
+    previous snapshot is not cut short. Interrupted leftovers go too.
+  - `DELETE /repositories/{owner}/{name}` (admin) deletes a repository with all its
+    snapshots, refused (`409`) while an import of it is queued or running. Token usage
+    records are kept, since that usage was billed.
   - On failure, the partial snapshot is deleted and the job stores a user-facing message;
     unexpected errors are logged in full but shown to users as a generic message.
   - Imports run as background tasks in the API process, with a concurrency limit. A

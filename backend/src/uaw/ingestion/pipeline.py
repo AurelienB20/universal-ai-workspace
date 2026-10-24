@@ -4,7 +4,8 @@ Transactions are deliberately short:
 1. chunks are saved in one transaction (all or nothing);
 2. embeddings are saved batch by batch, so progress is visible and no transaction
    stays open during slow API calls;
-3. the snapshot becomes "ready" (searchable) only once every chunk has a vector.
+3. the snapshot becomes "ready" (searchable) only once every chunk has a vector,
+   and the oldest snapshots of the repository are deleted in the same transaction.
 If anything fails, the incomplete snapshot is deleted and the job records a
 user-facing error message.
 """
@@ -50,12 +51,14 @@ class IngestionPipeline:
         *,
         chunking: ChunkingConfig | None = None,
         embed_batch_size: int = 128,
+        keep_snapshots: int = 2,
     ) -> None:
         self._sessions = session_factory
         self._source = source
         self._embedder = embedder
         self._chunking = chunking or ChunkingConfig()
         self._embed_batch_size = embed_batch_size
+        self._keep_snapshots = keep_snapshots
 
     async def run(self, job_id: uuid.UUID, ref: GitHubRepoRef) -> None:
         """Run one import to completion. Failures are recorded on the job, not raised."""
@@ -86,13 +89,16 @@ class IngestionPipeline:
             await self._embed(job_id, pending)
 
             async with self._sessions.begin() as session:
-                await SnapshotStore(session).mark_snapshot_ready(snapshot_id)
+                store = SnapshotStore(session)
+                await store.mark_snapshot_ready(snapshot_id)
+                pruned = await store.prune_snapshots(snapshot_id, keep=self._keep_snapshots)
                 await JobStore(session).mark_succeeded(job_id, snapshot_id, reused=False)
             logger.info(
-                "Imported %s@%s: %d chunks",
+                "Imported %s@%s: %d chunks (%d old snapshots deleted)",
                 fetched.info.ref.full_name,
                 fetched.commit_sha,
                 len(pending),
+                pruned,
             )
         except Exception as exc:
             await self._fail(job_id, snapshot_id, exc)

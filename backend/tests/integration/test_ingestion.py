@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from tests.fakes import DOCUMENTS, SHA, FakeEmbedder, FakeSource, fake_vector
+from tests.integration.test_search import add_snapshot, vector
 from uaw.chunking.chunker import chunk_document
 from uaw.chunking.lines import ChunkingConfig
 from uaw.connectors.github.errors import RepositoryNotFoundError
@@ -218,3 +219,52 @@ async def test_interrupted_jobs_are_failed_at_startup(session_factory: Sessions)
         job = await get_job(session_factory, job_id)
         assert job.status is JobStatus.FAILED and "restart" in (job.error or "")
     assert (await get_job(session_factory, done)).error == "earlier failure"
+
+
+async def snapshot_shas(sessions: Sessions) -> set[str]:
+    async with sessions() as session:
+        return set((await session.scalars(select(SnapshotRow.commit_sha))).all())
+
+
+async def test_old_snapshots_are_deleted_after_an_import(session_factory: Sessions) -> None:
+    for sha in ["1" * 40, "2" * 40, "3" * 40]:
+        job_id = await queue_job(session_factory)
+        await make_pipeline(session_factory, FakeSource(sha=sha)).run(job_id, REF)
+        assert (await get_job(session_factory, job_id)).status is JobStatus.SUCCEEDED
+
+    # KEEP_SNAPSHOTS=2: the newest (searched) and the previous one.
+    assert await snapshot_shas(session_factory) == {"2" * 40, "3" * 40}
+    # Their documents and chunks went with the deleted snapshot.
+    assert await count_rows(session_factory, ChunkRow) == 2 * expected_chunk_count()
+
+
+async def test_interrupted_snapshot_of_another_commit_is_deleted(session_factory: Sessions) -> None:
+    await make_pipeline(session_factory, FakeSource(sha="1" * 40)).run(
+        await queue_job(session_factory), REF
+    )
+    async with session_factory.begin() as session:
+        store = SnapshotStore(session)
+        repository_id = await store.upsert_repository((await FakeSource().fetch(REF)).info)
+        # Left "indexing" by a crash: never searchable, never reused (other commit).
+        await store.create_snapshot(repository_id, "2" * 40, embedding_model="fake")
+
+    job_id = await queue_job(session_factory)
+    await make_pipeline(session_factory, FakeSource(sha="3" * 40)).run(job_id, REF)
+
+    assert await snapshot_shas(session_factory) == {"1" * 40, "3" * 40}
+
+
+async def test_pruning_never_touches_other_repositories(session_factory: Sessions) -> None:
+    async with session_factory.begin() as session:
+        await add_snapshot(
+            session,
+            repository=GitHubRepoRef(owner="octo", name="other"),
+            sha="1" * 40,
+            files={"a.py": [vector((0, 1.0))]},
+        )
+    for sha in ["2" * 40, "3" * 40, "4" * 40]:
+        await make_pipeline(session_factory, FakeSource(sha=sha)).run(
+            await queue_job(session_factory), REF
+        )
+
+    assert await snapshot_shas(session_factory) == {"1" * 40, "3" * 40, "4" * 40}

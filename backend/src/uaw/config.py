@@ -88,6 +88,10 @@ class Settings(BaseSettings):
 
     # Imports run in the API process, at most this many at a time.
     max_concurrent_imports: int = Field(default=2, gt=0, le=10)
+    # Ready snapshots kept per repository after an import (the newest is searched).
+    # More than one, so that a question still reading the previous snapshot when a
+    # new import finishes does not lose its passages.
+    keep_snapshots: int = Field(default=2, ge=1, le=20)
 
     # Answer generation (Claude). Without a key, questions are refused with a clear error.
     anthropic_api_key: SecretStr | None = None

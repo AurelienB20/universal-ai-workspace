@@ -17,10 +17,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from uaw.connectors.github.client import RepositoryInfo
 from uaw.domain.chunks import Chunk
 from uaw.domain.documents import SourceDocument
+from uaw.domain.jobs import ACTIVE_JOB_STATUSES
 from uaw.storage.models import (
     EMBEDDING_DIMENSIONS,
     ChunkRow,
     DocumentRow,
+    IngestionJobRow,
     RepositoryRow,
     SnapshotRow,
 )
@@ -206,4 +208,54 @@ class SnapshotStore:
     async def delete_snapshot(self, snapshot_id: uuid.UUID) -> bool:
         """Delete a snapshot with its documents and chunks. Returns False if absent."""
         stmt = delete(SnapshotRow).where(SnapshotRow.id == snapshot_id).returning(SnapshotRow.id)
+        return (await self._session.execute(stmt)).scalar_one_or_none() is not None
+
+    async def prune_snapshots(self, snapshot_id: uuid.UUID, *, keep: int) -> int:
+        """Delete the snapshots of ``snapshot_id``'s repository, except the ``keep``
+        most recent ready ones (``snapshot_id`` always included). Leftover "indexing"
+        snapshots go too: only one import per repository runs at a time, so once this
+        one is ready, any other still indexing was interrupted. Returns the count."""
+        repository_id = (
+            select(SnapshotRow.repository_id).where(SnapshotRow.id == snapshot_id).scalar_subquery()
+        )
+        # Same order as the searches use to pick the latest snapshot.
+        kept = (
+            select(SnapshotRow.id)
+            .where(
+                SnapshotRow.repository_id == repository_id,
+                SnapshotRow.status == SnapshotStatus.READY,
+            )
+            .order_by(SnapshotRow.created_at.desc(), SnapshotRow.id)
+            .limit(keep)
+        )
+        stmt = (
+            delete(SnapshotRow)
+            .where(
+                SnapshotRow.repository_id == repository_id,
+                SnapshotRow.id != snapshot_id,
+                SnapshotRow.id.not_in(kept),
+            )
+            .returning(SnapshotRow.id)
+        )
+        return len((await self._session.execute(stmt)).all())
+
+    async def delete_repository(self, repository_key: str) -> bool:
+        """Delete a repository ("owner/name", any case) with all its snapshots, unless
+        an import of it is queued or running. Returns False if nothing was deleted."""
+        key = repository_key.lower()
+        # Checked in the delete statement itself, so a running import is never cut
+        # short. An import queued concurrently runs afterwards and re-imports it.
+        active_import = (
+            select(IngestionJobRow.id)
+            .where(
+                IngestionJobRow.repository_key == key,
+                IngestionJobRow.status.in_(ACTIVE_JOB_STATUSES),
+            )
+            .exists()
+        )
+        stmt = (
+            delete(RepositoryRow)
+            .where(RepositoryRow.key == key, ~active_import)
+            .returning(RepositoryRow.id)
+        )
         return (await self._session.execute(stmt)).scalar_one_or_none() is not None
