@@ -18,6 +18,7 @@ kept in the order the decisions were made.
 | [0010](0010-cached-answers-labelled.md) | Suggested questions are answered once and served from a labelled cache | 2026-10-24 |
 | [0011](0011-rank-tests-lower-hybrid-off.md) | Test files rank lower; hybrid search is measured, and left off | 2026-10-24 |
 | [0012](0012-reranker-decided-by-a-pre-registered-test.md) | Answers use a reranker, decided by a test fixed in advance | 2026-10-24 |
+| [0013](0013-streamed-draft-then-checked-answer.md) | Answers are streamed as a draft, then replaced by the checked answer | 2026-10-24 |
 
 The *How it is built* page of the web interface presents the same decisions in a shorter
 form, in French and English.

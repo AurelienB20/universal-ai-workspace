@@ -1,0 +1,16 @@
+# CI only, on top of deploy/docker-compose.prod.yml: the web server talks to a fake API
+# that streams an answer slowly, to check that Caddy and Next.js do not buffer it.
+services:
+  fake-api:
+    image: ${BACKEND_IMAGE:?}
+    command: ["python", "/ci/fake_answer_stream.py"]
+    volumes:
+      - ../.github/ci:/ci:ro
+    networks: [internal]
+
+  web:
+    environment:
+      API_URL: http://fake-api:8000
+    depends_on:
+      fake-api:
+        condition: service_healthy

@@ -128,6 +128,12 @@ overview, see the [README](../README.md).
   - `POST /ask {"repository": "owner/name", "question": ...}` retrieves the top passages,
     asks Claude (`claude-opus-5-5` by default) and returns a Markdown answer citing
     `[S1]`, `[S2]`…, with each citation's file, line range and permanent link.
+  - `POST /ask/stream` (same body) streams it as server-sent events: `sources` (the
+    passages), `delta` (draft text, read out of the JSON as it arrives), `reset` (the
+    draft is void after a mid-answer fallback), then `done` (the checked answer, as from
+    `/ask`) or `error`. Errors found before the stream are HTTP errors. Each answer runs in
+    its own task, which holds the concurrency slot and the budget reservation to the end;
+    a client that leaves cancels it, and the tokens already generated are recorded.
   - Structured output: the API enforces a JSON schema `{answer, insufficient_context}`,
     so the model can say the passages do not contain the answer instead of guessing.
   - The stop reason is checked before the content is read: a safety refusal or a

@@ -45,7 +45,7 @@ Each point below is enforced by code and checked by a test, not just described.
 | 🛡️ | **Repositories are untrusted input**, for the server and for the model. | Archives are read in memory, never extracted: decompression bombs, path traversal and oversized files are rejected. Passages are escaped inside `<source>` tags, and opt-in tests run real prompt-injection attempts against the model. | [archive tests](backend/tests/unit/test_github_archive.py), [injection tests](backend/tests/live/test_prompt_injection_live.py) |
 | 🔍 | **Filtered vector search silently returns nothing.** An HNSW index over every repository keeps the nearest chunks of the whole table, then the repository filter removes them all. | pgvector iterative index scans. An integration test forces the plan and shows the plain query losing every result. | [test](backend/tests/integration/test_search.py) |
 | 🔐 | **A public demo is a cost and abuse target.** | Two roles: the demo key can only question an allowlist of repositories and never import. Rate limits, a cap on concurrent questions, required daily budgets. The API key never reaches the browser; a Content Security Policy guards the page. | [`security.py`](backend/src/uaw/api/security.py), [frontend](frontend/README.md) |
-| ⚡ | **Live answers cost money and take ~10 s.** | Suggested questions are answered once and served from a cache, labelled with their generation date, and deleted with the snapshot they came from, so they never describe other code. | [test](backend/tests/integration/test_suggestions.py) |
+| ⚡ | **Live answers cost money and take ~10 s.** | Answers are streamed: the passages show after ~0.6 s, then the text as it is written, as a draft the checked answer replaces. Suggested questions are answered once and served from a cache, labelled with their generation date, and deleted with the snapshot they came from, so they never describe other code. | [test](backend/tests/integration/test_suggestions.py) |
 
 ## How it works
 
@@ -72,9 +72,10 @@ flowchart LR
    searchable only once every chunk has its vector.
 2. **Ask.** The question is embedded, the nearest chunks of the latest snapshot are
    retrieved and reordered by a reranker, and Claude answers from them only, through a JSON
-   schema that also lets it say the context is insufficient instead of guessing.
+   schema that also lets it say the context is insufficient instead of guessing. The
+   answer is streamed: the passages first, then the text while Claude writes it.
 3. **Cite.** The server resolves every `[Sn]` to a permanent GitHub link to the exact
-   lines. Anything else is removed before the answer is returned.
+   lines. Anything else is removed, and this checked answer replaces the streamed draft.
 
 ## Measured, not assumed
 
@@ -109,7 +110,7 @@ On the small itsdangerous repository it costs 0.03. Questions without an answer 
 reach a similarity of 0.49-0.54, so a threshold cannot replace the model's "insufficient
 context". The [analysis](backend/eval/results/README.md) reads the misses one by one.
 
-**Tests:** 514 backend tests (unit, and integration against a real PostgreSQL), 32 frontend
+**Tests:** 572 backend tests (unit, and integration against a real PostgreSQL), 46 frontend
 tests, strict typing (mypy, TypeScript), all run in CI along with both production Docker
 image builds.
 
@@ -152,7 +153,9 @@ server (Caddy, HTTPS, backups), with the same stack CI runs on every push:
 - [x] **Showcase:** *Explain the Evidence* under every answer, a *How it is built* page,
   suggested questions.
 - [ ] Public deployment: the stack, backups and checks are ready and tested in CI ([guide](docs/deployment.md)); the server is next.
-- [ ] Streaming answers (server-sent events).
+- [x] **Streaming answers:** the sources after about 0.6 s, then the text as Claude writes
+  it, then the server-checked answer, which replaces the draft
+  ([ADR 0013](docs/adr/0013-streamed-draft-then-checked-answer.md)).
 - [x] **Harder evaluation:** line-level labels, categories, dev and test splits, a recorded
   baseline and a comparison command.
 - [x] **First retrieval experiment:** hybrid search measured (worse, left off); test files

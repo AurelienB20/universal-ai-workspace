@@ -37,6 +37,10 @@ check "how-it-is-built page" 200 "$(status "$base/architecture")"
 check "imports disabled on the demo" '{"importsEnabled":false}' \
   "$(curl "${curl_opts[@]}" "$base/api/config")"
 check "repository list" 200 "$(status "$base/api/repositories")"
+# A repository outside DEMO_REPOSITORIES: refused by the API before any model call.
+check "streamed answers reach the API" 403 \
+  "$(status -X POST -H 'content-type: application/json' \
+      -d '{"repository":"octo/not-allowed","question":"Why?"}' "$base/api/ask/stream")"
 check "import route removed" 404 \
   "$(status -X POST -H 'content-type: application/json' -d '{"url":"https://github.com/pallets/flask"}' "$base/api/imports")"
 

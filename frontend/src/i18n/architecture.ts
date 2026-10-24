@@ -33,7 +33,11 @@ export const STEP_CODE: Record<StepId, string[]> = {
   chunk: ["backend/src/uaw/chunking/lines.py", "backend/src/uaw/chunking/markdown.py"],
   embed: ["backend/src/uaw/embeddings/voyage.py", "backend/src/uaw/ingestion/pipeline.py"],
   search: ["backend/src/uaw/storage/search.py", "backend/src/uaw/retrieval/retriever.py"],
-  generate: ["backend/src/uaw/generation/prompt.py", "backend/src/uaw/generation/claude.py"],
+  generate: [
+    "backend/src/uaw/generation/prompt.py",
+    "backend/src/uaw/generation/claude.py",
+    "backend/src/uaw/generation/json_stream.py",
+  ],
   cite: ["backend/src/uaw/generation/citations.py", "backend/tests/unit/test_citations.py"],
 };
 
@@ -250,6 +254,7 @@ const fr: ArchitectureContent = {
           "Les passages sont donnés au modèle sous des identifiants opaques (S1, S2…), échappés dans des balises <source> : un fichier ne peut pas en fermer une, ni en forger une autre.",
           "Les consignes disent que les passages sont des données, jamais des ordres : des tests d'injection de prompt le vérifient contre le vrai modèle.",
           "Un schéma JSON impose {answer, insufficient_context} : le modèle peut dire que le contexte ne suffit pas au lieu d'inventer.",
+          "La réponse arrive en streaming : les passages d'abord, puis le texte au fil de l'écriture, lu dans le JSON incomplet. Ce brouillon est remplacé par la réponse vérifiée.",
         ],
         choice:
           "Le SDK Anthropic directement, avec une sortie structurée et un effort de réflexion fixé explicitement.",
@@ -263,7 +268,8 @@ const fr: ArchitectureContent = {
             why: "Plus rien ne distingue une vraie réponse d'un aveu d'ignorance, ni une réponse tronquée.",
           },
         ],
-        figure: "Environ 8 s, 4 000 tokens en entrée, 700 en sortie, environ 0,03 $ par question.",
+        figure:
+          "Passages affichés après 0,6 s, réponse complète en 8 s environ ; 4 000 tokens en entrée, 700 en sortie, environ 0,03 $ par question.",
       },
       cite: {
         title: "Vérification des citations",
@@ -434,7 +440,7 @@ const fr: ArchitectureContent = {
       { label: "Coût par question", value: "environ 0,03 $" },
       { label: "Recherche sur Flask, au niveau des lignes", value: "hit@1 0,86 · recall@5 0,92 · MRR 0,90" },
       { label: "Noms exacts / questions en français", value: "MRR 1,00 / 1,00" },
-      { label: "Tests", value: "514 backend, 32 frontend, en CI à chaque push" },
+      { label: "Tests", value: "572 backend, 46 frontend, en CI à chaque push" },
     ],
     caveat:
       "65 questions annotées à la ligne près sur deux dépôts, par catégorie, avec un jeu dev pour régler et un jeu test mis de côté. Classer les tests plus bas a corrigé les questions sur un nom exact, le reclassement les questions en français ; les paraphrases (MRR 0,72) et les questions sur plusieurs fichiers (0,75) restent les plus faibles. Chaque changement n'est gardé que s'il fait mieux sur le jeu test.",
@@ -581,6 +587,7 @@ const en: ArchitectureContent = {
           "Passages reach the model under opaque IDs (S1, S2…), escaped inside <source> tags: a file cannot close one, nor forge another.",
           "The instructions say passages are data, never commands: prompt-injection tests check it against the real model.",
           "A JSON schema enforces {answer, insufficient_context}: the model can say the context is not enough instead of inventing.",
+          "The answer is streamed: the passages first, then the text as it is written, read out of the incomplete JSON. This draft is replaced by the checked answer.",
         ],
         choice:
           "The Anthropic SDK directly, with structured output and an explicitly set thinking effort.",
@@ -594,7 +601,8 @@ const en: ArchitectureContent = {
             why: "Nothing would tell a real answer from an admission of ignorance, or from a truncated one.",
           },
         ],
-        figure: "About 8 s, 4,000 input and 700 output tokens, about $0.03 per question.",
+        figure:
+          "Passages shown after 0.6 s, the full answer in about 8 s; 4,000 input and 700 output tokens, about $0.03 per question.",
       },
       cite: {
         title: "Citation check",
@@ -765,7 +773,7 @@ const en: ArchitectureContent = {
       { label: "Cost per question", value: "about $0.03" },
       { label: "Retrieval on Flask, at line level", value: "hit@1 0.86 · recall@5 0.92 · MRR 0.90" },
       { label: "Exact names / questions in French", value: "MRR 1.00 / 1.00" },
-      { label: "Tests", value: "514 backend, 32 frontend, in CI on every push" },
+      { label: "Tests", value: "572 backend, 46 frontend, in CI on every push" },
     ],
     caveat:
       "65 questions labeled to the line over two repositories, by category, with a dev split for tuning and a held-out test split. Ranking tests lower fixed questions about an exact name, reranking the questions in French; paraphrases (MRR 0.72) and multi-file questions (0.75) remain the weakest. Each change is kept only if it does better on the test split.",

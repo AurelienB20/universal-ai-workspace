@@ -140,6 +140,12 @@ jobs:
           awk -F'|' 'NF == 3 && $2 != $3 { print "mismatch: " $0; bad = 1 } END { exit bad }' restore.txt
           grep -qx 'repositories|1|1' restore.txt
           grep -qx 'usage_records|1|1' restore.txt
+      # Last: the web server is pointed at a fake API that streams an answer slowly.
+      - name: Streamed answers pass through Caddy and Next.js unbuffered
+        run: |
+          stack="-f docker-compose.prod.yml -f ../.github/ci/stream-check.compose.yml"
+          docker compose $stack up -d --wait --wait-timeout 120 fake-api web
+          python3 ../.github/ci/check_stream.py https://localhost
       - name: Logs
         if: failure()
         run: docker compose -f docker-compose.prod.yml logs --no-color

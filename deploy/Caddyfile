@@ -2,7 +2,10 @@
 # (Let's Encrypt) for DOMAIN; with DOMAIN=localhost it uses its own local authority.
 
 {$DOMAIN} {
-	encode zstd gzip
+	# Streamed answers stay uncompressed: a compressor holds the events back until it
+	# has enough bytes, and the answer would no longer appear as it is written.
+	@compressible not path /api/ask/stream
+	encode @compressible zstd gzip
 
 	header {
 		# HTTPS only, for a year, once a visitor has seen the site over HTTPS. Not

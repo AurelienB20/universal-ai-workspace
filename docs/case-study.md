@@ -14,7 +14,7 @@ reviewed before the next.
 - **What makes it hard:** citations that cannot be invented, repositories treated as
   hostile input, a public demo that strangers cannot abuse or turn into a bill, and the
   discipline to measure before optimising.
-- **Results:** about 10 s and $0.03 per answer, 514 backend and 32 frontend tests, every
+- **Results:** about 10 s and $0.03 per answer, 572 backend and 46 frontend tests, every
   check in CI, and ten problems found by tests, an audit, measurements or the real system,
   described below.
 
@@ -141,6 +141,18 @@ using the real system, and each fix is covered by a test.
     evaluation can be wrong in the system's disfavour too, and 18 questions cannot settle a
     difference of a few hundredths.
 
+11. **Streaming could have broken two guarantees; both were caught at design time.**
+    A citation cannot be checked before the answer is complete, so the streamed text is a
+    labelled draft that the checked answer replaces. And the obvious design (open the
+    budget reservation in the request handler, close it when the response ends) fails
+    quietly: the response is sent from another task, and the usage meter is a context
+    variable that cannot be reset from another task. Each answer now runs in its own
+    task, and a test checks that a client that leaves stops the answer, frees its slot
+    and still has its tokens recorded. The proxy was the third place to check: Caddy
+    compresses text responses, events included, so the streaming route is excluded and a
+    CI step times the events through the real stack
+    ([ADR 0013](adr/0013-streamed-draft-then-checked-answer.md)).
+
 ## Measurements
 
 Answers on `pallets/itsdangerous` (41 files, 99 passages) with Claude Opus 5.5 at effort
@@ -154,7 +166,8 @@ Answers on `pallets/itsdangerous` (41 files, 99 passages) with Claude Opus 5.5 a
 | Retrieval on Flask (35 scored questions, line level) | hit@1 0.86, recall@5 0.92, MRR 0.90 (vector search alone: 0.63, 0.82, 0.71) |
 | ... by category (MRR) | lookup 1.00, identifier 1.00, French 1.00, multi-file 0.75, paraphrase 0.72 |
 | Search time | about 0.6 s median (embedding, database, reranking) |
-| Tests | 514 backend (unit and PostgreSQL integration), 32 frontend; CI on every push |
+| First visible result | the passages after about 0.6 s, then the text as it is written |
+| Tests | 572 backend (unit and PostgreSQL integration), 46 frontend; CI on every push |
 
 ## What I would do next
 
@@ -162,11 +175,9 @@ Answers on `pallets/itsdangerous` (41 files, 99 passages) with Claude Opus 5.5 a
    split (the reranker's gain only showed on the held-out split), then a full-text ranking
    that knows word rarity (BM25); each kept only if the dev split improves and the
    held-out test split confirms it.
-2. **Streaming answers** (server-sent events): sources first, then the text, then the
-   server-validated citations.
-3. **A public deployment** on one server: Docker Compose, Caddy for HTTPS, images built by
+2. **A public deployment** on one server: Docker Compose, Caddy for HTTPS, images built by
    CI, and backups that are restored in a test, not just taken.
-4. **More sources and users**: PostgreSQL databases and PDFs as sources, then workspaces
+3. **More sources and users**: PostgreSQL databases and PDFs as sources, then workspaces
    with per-user budgets (the reservation mechanism already supports a key per tenant).
 
 ## What I learned

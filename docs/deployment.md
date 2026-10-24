@@ -51,8 +51,10 @@ docker compose -f docker-compose.prod.yml up -d --wait
 
 The first start obtains the HTTPS certificate (DNS must already point to the server). The
 smoke test checks HTTPS and its redirect, the security headers, that imports are removed
-from the public site, that the API needs a key and is only reachable from the server, and
-that the demo key cannot import. It calls no model provider.
+from the public site, that streamed answers reach the API, that the API needs a key and is
+only reachable from the server, and that the demo key cannot import. It calls no model
+provider. (CI also checks, with a fake API, that Caddy and Next.js pass a streamed answer
+on event by event: Caddy must not compress `/api/ask/stream`, see the `Caddyfile`.)
 
 ## 4. Import the demo repositories
 
