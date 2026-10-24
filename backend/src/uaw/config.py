@@ -57,6 +57,14 @@ class Settings(BaseSettings):
     ask_reserved_llm_tokens: int = Field(default=12_000, gt=0)
     query_reserved_embedding_tokens: int = Field(default=2_000, gt=0)
 
+    @property
+    def query_reserved_voyage_tokens(self) -> int:
+        """Voyage tokens one question or search may use: its embedding, and the reranking
+        of its candidates when a reranker is configured."""
+        return self.query_reserved_embedding_tokens + (
+            self.rerank_reserved_tokens if self.rerank_model else 0
+        )
+
     # GitHub connector. A token is optional: it raises the API rate limit from
     # 60 to 5,000 requests per hour. No scope is needed for public repositories.
     github_token: SecretStr | None = None
@@ -109,6 +117,12 @@ class Settings(BaseSettings):
     # Below 1, chunks from test files rank lower (except for questions about tests).
     # Measured: 0.5 raises the line-level MRR on Flask from 0.68 to 0.76 (test split).
     retrieval_test_weight: float = Field(default=0.5, gt=0, le=1)
+    # Voyage reranker reordering the best chunks ("" = no reranking). Measured on the
+    # Flask test split: MRR 0.76 -> 0.91, for about 0.4 s more per search.
+    rerank_model: str = "rerank-3"
+    rerank_candidates: int = Field(default=30, ge=1, le=100)
+    # Worst-case reranking tokens of one question: (question + chunk) per candidate.
+    rerank_reserved_tokens: int = Field(default=40_000, gt=0)
     # On a safety refusal, the API retries the request on a model it picks for the
     # refusal category, inside the same call.
     llm_refusal_fallback: bool = True

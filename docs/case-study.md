@@ -14,8 +14,8 @@ reviewed before the next.
 - **What makes it hard:** citations that cannot be invented, repositories treated as
   hostile input, a public demo that strangers cannot abuse or turn into a bill, and the
   discipline to measure before optimising.
-- **Results:** about 10 s and $0.03 per answer, 503 backend and 32 frontend tests, every
-  check in CI, and nine problems found by tests, an audit, measurements or the real system,
+- **Results:** about 10 s and $0.03 per answer, 514 backend and 32 frontend tests, every
+  check in CI, and ten problems found by tests, an audit, measurements or the real system,
   described below.
 
 ## The problem
@@ -128,6 +128,19 @@ using the real system, and each fix is covered by a test.
    escaping mistake had turned the `\b` of the "mentions tests" rule into a control
    character, so the rule never matched; the itsdangerous score gave it away.
 
+10. **A reranker looked worse because my labels were incomplete, then level because the
+    sample was small.** Next textbook step: a cross-encoder reranker on the 30 best
+    passages. The first measurement said it hurt (Flask dev MRR 0.85 → 0.80). Reading its
+    first results, three of its "misses" were correct answers I had not labeled (a guide
+    section, a tutorial page, a quickstart example). With the labels completed, it came out
+    level over both repositories, and I was about to leave it off. Instead, I fixed a rule
+    before looking: on Flask's held-out test split, keep it only if the MRR rises by at
+    least 0.05 with more questions up than down. It went from 0.76 to 0.91 (French
+    questions 0.42 → 1.00); it is now on
+    ([ADR 0012](adr/0012-reranker-decided-by-a-pre-registered-test.md)). Two lessons: an
+    evaluation can be wrong in the system's disfavour too, and 18 questions cannot settle a
+    difference of a few hundredths.
+
 ## Measurements
 
 Answers on `pallets/itsdangerous` (41 files, 99 passages) with Claude Opus 5.5 at effort
@@ -138,16 +151,17 @@ Answers on `pallets/itsdangerous` (41 files, 99 passages) with Claude Opus 5.5 a
 | Answer time | about 10 s (7 to 12 s observed): ~1 s retrieval, ~8 s generation |
 | Tokens per question | 1,800 to 5,800 in, 400 to 900 out |
 | Cost per question | about $0.03; every model call is metered and stored |
-| Retrieval on Flask (35 scored questions, line level) | hit@1 0.71, recall@5 0.87, MRR 0.81 (vector search alone: 0.63, 0.82, 0.71) |
-| ... by category (MRR) | lookup 0.94, identifier 0.94, multi-file 0.87, paraphrase 0.67, French 0.58 |
-| Tests | 503 backend (unit and PostgreSQL integration), 32 frontend; CI on every push |
+| Retrieval on Flask (35 scored questions, line level) | hit@1 0.86, recall@5 0.92, MRR 0.90 (vector search alone: 0.63, 0.82, 0.71) |
+| ... by category (MRR) | lookup 1.00, identifier 1.00, French 1.00, multi-file 0.75, paraphrase 0.72 |
+| Search time | about 0.6 s median (embedding, database, reranking) |
+| Tests | 514 backend (unit and PostgreSQL integration), 32 frontend; CI on every push |
 
 ## What I would do next
 
-1. **A reranker** on the top passages (aimed at multi-file questions and paraphrases), then
-   **translating non-English questions** before embedding them, then a full-text ranking
-   that knows word rarity (BM25) to give hybrid search another chance; each kept only if
-   the dev split improves and the held-out test split confirms it.
+1. **More questions**, so that effects of a few hundredths become visible on the dev
+   split (the reranker's gain only showed on the held-out split), then a full-text ranking
+   that knows word rarity (BM25); each kept only if the dev split improves and the
+   held-out test split confirms it.
 2. **Streaming answers** (server-sent events): sources first, then the text, then the
    server-validated citations.
 3. **A public deployment** on one server: Docker Compose, Caddy for HTTPS, images built by
@@ -165,7 +179,7 @@ Answers on `pallets/itsdangerous` (41 files, 99 passages) with Claude Opus 5.5 a
 - **The textbook answer is a hypothesis.** Hybrid search is what everyone recommends for
   exact names; on this corpus it made retrieval worse, and a two-line change did better.
   Only the measurement could tell, and only reading the misses could explain why.
-- **Look at the real system.** Three of the nine problems above (encoding, translation,
+- **Look at the real system.** Three of the ten problems above (encoding, translation,
   misleading bars) passed every test and were obvious within minutes of using the real
   application.
 - **Report numbers honestly.** A saturated evaluation, a cost estimate that was wrong by a

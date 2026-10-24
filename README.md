@@ -71,8 +71,8 @@ flowchart LR
    cut at definitions or Markdown headings. Each chunk is embedded; the snapshot becomes
    searchable only once every chunk has its vector.
 2. **Ask.** The question is embedded, the nearest chunks of the latest snapshot are
-   retrieved, and Claude answers from them only, through a JSON schema that also lets it
-   say the context is insufficient instead of guessing.
+   retrieved and reordered by a reranker, and Claude answers from them only, through a JSON
+   schema that also lets it say the context is insufficient instead of guessing.
 3. **Cite.** The server resolves every `[Sn]` to a permanent GitHub link to the exact
    lines. Anything else is removed before the answer is returned.
 
@@ -91,22 +91,25 @@ On [pallets/itsdangerous](https://github.com/pallets/itsdangerous) (41 files, 99
 dev and test splits. On [pallets/flask](https://github.com/pallets/flask) (216 files,
 1,013 passages):
 
-| Questions (MRR) | Vector search alone | Current: test files ranked lower |
-|---|---|---|
-| All (35 scored) | 0.71 | **0.81** |
-| Asked with the code's words (`lookup`) | 0.91 | 0.94 |
-| Exact names (`identifier`) | 0.72 | **0.94** |
-| Without the code's words (`paraphrase`) | 0.62 | 0.67 |
-| In French (`cross-lingual`) | 0.44 | 0.58 |
+| Questions (MRR) | Vector search alone | + Test files ranked lower | **Current: + reranker** |
+|---|---|---|---|
+| All (35 scored) | 0.71 | 0.81 | **0.90** |
+| Asked with the code's words (`lookup`) | 0.91 | 0.94 | 1.00 |
+| Exact names (`identifier`) | 0.72 | 0.94 | 1.00 |
+| Without the code's words (`paraphrase`) | 0.62 | 0.67 | 0.72 |
+| In French (`cross-lingual`) | 0.44 | 0.58 | **1.00** |
 
 Each change is tuned on the dev split and kept only if the held-out test split confirms it.
 Hybrid search (full text + vectors, RRF) was built and measured: it made results worse, so
 it is off ([ADR 0011](docs/adr/0011-rank-tests-lower-hybrid-off.md)). Ranking test files
-lower is what fixed exact names. Questions without an answer still reach a similarity of
-0.49-0.54, so a threshold cannot replace the model's "insufficient context". The
-[analysis](backend/eval/results/README.md) reads the misses one by one.
+lower fixed exact names. A cross-encoder reranker looked level on the dev split, then a
+test fixed in advance on the held-out split settled it: Flask MRR 0.76 → 0.91, for about
+0.4 s more per search ([ADR 0012](docs/adr/0012-reranker-decided-by-a-pre-registered-test.md)).
+On the small itsdangerous repository it costs 0.03. Questions without an answer still
+reach a similarity of 0.49-0.54, so a threshold cannot replace the model's "insufficient
+context". The [analysis](backend/eval/results/README.md) reads the misses one by one.
 
-**Tests:** 503 backend tests (unit, and integration against a real PostgreSQL), 32 frontend
+**Tests:** 514 backend tests (unit, and integration against a real PostgreSQL), 32 frontend
 tests, strict typing (mypy, TypeScript), all run in CI along with both production Docker
 image builds.
 
@@ -154,8 +157,10 @@ server (Caddy, HTTPS, backups), with the same stack CI runs on every push:
   baseline and a comparison command.
 - [x] **First retrieval experiment:** hybrid search measured (worse, left off); test files
   ranked lower (Flask MRR 0.71 → 0.81, confirmed on the test split).
-- [ ] Reranking, then translating non-English questions, each kept only if the dev split
-  improves and the test split confirms it.
+- [x] **Second retrieval experiment:** a cross-encoder reranker, kept after a test fixed in
+  advance (Flask MRR 0.81 → 0.90); three incomplete labels found and completed on the way.
+- [ ] More questions, translating non-English questions, a BM25 ranking, each kept only if
+  the dev split improves and the test split confirms it.
 - [ ] More sources (PostgreSQL, PDF), multi-user workspaces.
 
 ## License

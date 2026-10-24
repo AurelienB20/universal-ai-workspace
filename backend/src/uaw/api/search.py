@@ -65,7 +65,7 @@ async def search(
             detail="Search is disabled: no embedding API key is configured.",
         )
     settings: Settings = request.app.state.settings
-    estimates: dict[Provider, int] = {"voyage": settings.query_reserved_embedding_tokens}
+    estimates: dict[Provider, int] = {"voyage": settings.query_reserved_voyage_tokens}
 
     try:
         async with reserved(services, estimates), tracked(services, "search", ref.full_name):

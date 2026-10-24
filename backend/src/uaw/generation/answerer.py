@@ -29,6 +29,8 @@ class RetrievedPassage(BaseModel):
     content: str
     # Cosine similarity with the question: compares the passages of one answer.
     score: float
+    # Relevance from the reranker, when one reordered the passages.
+    rerank_score: float | None = None
     url: str
     # Whether the final answer cites it.
     cited: bool
@@ -139,6 +141,7 @@ def _passage(source: Source, cited: bool) -> RetrievedPassage:
         section=hit.section,
         content=hit.content,
         score=hit.score,
+        rerank_score=hit.rerank_score,
         url=hit.url,
         cited=cited,
     )

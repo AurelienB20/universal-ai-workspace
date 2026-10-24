@@ -13,6 +13,8 @@ export function EvidencePanel({ trace }: { trace: AnswerTrace }) {
   const duration = (ms: number) => `${seconds.format(ms / 1000)} s`;
   const cited = trace.passages.filter((passage) => passage.cited).length;
   const widths = scoreWidths(trace.passages);
+  // Reranked passages are ordered by relevance, no longer by similarity: say which.
+  const reranked = trace.passages.some((passage) => passage.rerank_score != null);
 
   return (
     // <details>: closed by default, accessible, and no state to keep.
@@ -23,7 +25,9 @@ export function EvidencePanel({ trace }: { trace: AnswerTrace }) {
       </summary>
 
       <div className="flex flex-col gap-3 border-t border-zinc-200 px-3 py-3 dark:border-zinc-800">
-        <p className="text-zinc-600 dark:text-zinc-400">{t.evidence.intro}</p>
+        <p className="text-zinc-600 dark:text-zinc-400">
+          {reranked ? t.evidence.introReranked : t.evidence.intro}
+        </p>
 
         <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
           <li>{t.evidence.summary(trace.passages.length, cited)}</li>
@@ -68,19 +72,19 @@ export function EvidencePanel({ trace }: { trace: AnswerTrace }) {
                 </span>
               </div>
 
-              <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
-                <span className="w-28 shrink-0">{t.evidence.score}</span>
-                <div
-                  className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800"
-                  aria-hidden="true"
-                >
-                  <div
-                    className="h-full rounded-full bg-indigo-500"
-                    style={{ width: `${Math.round(widths[index] * 100)}%` }}
-                  />
-                </div>
-                <span className="w-12 text-right font-mono">{passage.score.toFixed(3)}</span>
-              </div>
+              {passage.rerank_score != null && (
+                <ScoreBar
+                  label={t.evidence.rerankScore}
+                  value={passage.rerank_score}
+                  className="bg-indigo-500"
+                />
+              )}
+              <ScoreBar
+                label={t.evidence.score}
+                value={passage.score}
+                width={widths[index]}
+                className={reranked ? "bg-zinc-400 dark:bg-zinc-500" : "bg-indigo-500"}
+              />
 
               {passage.section && (
                 <p className="mt-1 text-xs text-zinc-500">{passage.section}</p>
@@ -100,5 +104,32 @@ export function EvidencePanel({ trace }: { trace: AnswerTrace }) {
         </ol>
       </div>
     </details>
+  );
+}
+
+function ScoreBar({
+  label,
+  value,
+  width,
+  className,
+}: {
+  label: string;
+  value: number;
+  /** 0 to 1; defaults to the value itself, clamped. */
+  width?: number;
+  className: string;
+}) {
+  const fill = width ?? Math.min(1, Math.max(0, value));
+  return (
+    <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
+      <span className="w-28 shrink-0">{label}</span>
+      <div
+        className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800"
+        aria-hidden="true"
+      >
+        <div className={`h-full rounded-full ${className}`} style={{ width: `${Math.round(fill * 100)}%` }} />
+      </div>
+      <span className="w-12 text-right font-mono">{value.toFixed(3)}</span>
+    </div>
   );
 }

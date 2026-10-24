@@ -38,6 +38,7 @@ export interface RetrievedPassage {
   section: string | null;
   content: string;
   score: number; // cosine similarity with the question
+  rerank_score?: number | null; // relevance from the reranker, when one ordered them
   url: string;
   cited: boolean;
 }

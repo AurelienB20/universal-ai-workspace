@@ -1,5 +1,6 @@
 """Run a labeled question set against the retriever and report the metrics."""
 
+import time
 from dataclasses import asdict
 
 from pydantic import BaseModel, ConfigDict
@@ -28,7 +29,18 @@ class EvaluationRun(BaseModel):
     split: Split | None
     # How retrieval was configured (absent from reports made before hybrid search).
     retrieval: dict[str, object] | None = None
+    # Time of each search (embedding, database, reranking), in milliseconds: a change
+    # that improves the scores may cost too much latency. Absent from older reports.
+    search_ms: list[int] | None = None
     report: RetrievalReport
+
+    def latency_summary(self) -> str | None:
+        if not self.search_ms:
+            return None
+        times = sorted(self.search_ms)
+        median = times[len(times) // 2]
+        slowest = times[-1]
+        return f"Search time: median {median} ms, slowest {slowest} ms"
 
 
 def check_labels(questions: list[EvalQuestion], line_counts: dict[str, int]) -> list[str]:
@@ -76,8 +88,11 @@ async def evaluate_dataset(
         )
 
     runs = []
+    search_ms = []
     for question in questions:
+        started = time.perf_counter()
         result = await retriever.search(dataset.ref, question.question, top_k=top_k)
+        search_ms.append(round((time.perf_counter() - started) * 1000))
         runs.append(
             QuestionRun(
                 question_id=question.id,
@@ -96,7 +111,8 @@ async def evaluate_dataset(
         commit_sha=snapshot.commit_sha,
         top_k=top_k,
         split=split,
-        retrieval=asdict(retriever.options),
+        retrieval=asdict(retriever.options) | {"rerank_model": retriever.rerank_model},
+        search_ms=search_ms,
         report=evaluate(runs, [k for k in REPORTED_KS if k <= top_k]),
     )
 
@@ -119,6 +135,8 @@ def format_run(dataset: EvalDataset, run: EvaluationRun) -> str:
         f"Questions: {report.answerable} scored, {report.unanswerable} without an answer"
         f" (split: {run.split or 'all'}, top {run.top_k})"
     )
+    if latency := run.latency_summary():
+        lines.append(latency)
     header = (
         f"{'':<22}"
         + "".join(f"  {f'hit@{k}':>6}" for k in ks)

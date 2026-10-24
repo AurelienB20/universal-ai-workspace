@@ -96,3 +96,13 @@ def test_demo_key_must_differ_from_the_admin_key(monkeypatch: pytest.MonkeyPatch
 
     with pytest.raises(ValidationError, match="must differ"):
         Settings(_env_file=None)
+
+
+def test_reranking_adds_to_the_voyage_reservation() -> None:
+    without = Settings(_env_file=None, rerank_model="")
+    with_reranker = Settings(_env_file=None, rerank_model="rerank-3")
+
+    assert without.query_reserved_voyage_tokens == without.query_reserved_embedding_tokens
+    assert with_reranker.query_reserved_voyage_tokens == (
+        with_reranker.query_reserved_embedding_tokens + with_reranker.rerank_reserved_tokens
+    )

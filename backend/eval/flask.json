@@ -56,7 +56,10 @@
       "question": "How are error handlers registered for an exception class or an HTTP status code?",
       "category": "lookup",
       "split": "dev",
-      "evidence": [{ "path": "src/flask/sansio/scaffold.py", "start_line": 606, "end_line": 647 }]
+      "evidence": [
+        { "path": "src/flask/sansio/scaffold.py", "start_line": 606, "end_line": 647 },
+        { "path": "docs/errorhandling.rst", "start_line": 97, "end_line": 137 }
+      ]
     },
     {
       "id": "flask-make-response",
@@ -254,7 +257,8 @@
       "evidence": [
         { "path": "src/flask/helpers.py", "start_line": 326, "end_line": 357 },
         { "path": "src/flask/helpers.py", "start_line": 360, "end_line": 399 },
-        { "path": "docs/patterns/flashing.rst", "start_line": 14, "end_line": 89 }
+        { "path": "docs/patterns/flashing.rst", "start_line": 14, "end_line": 89 },
+        { "path": "docs/tutorial/templates.rst", "start_line": 64, "end_line": 84 }
       ]
     },
     {
@@ -296,7 +300,10 @@
       "question": "Comment afficher une page d'erreur personnalisée pour une erreur 404 ?",
       "category": "cross-lingual",
       "split": "dev",
-      "evidence": [{ "path": "docs/errorhandling.rst", "start_line": 258, "end_line": 331 }]
+      "evidence": [
+        { "path": "docs/errorhandling.rst", "start_line": 258, "end_line": 331 },
+        { "path": "docs/quickstart.rst", "start_line": 593, "end_line": 631 }
+      ]
     },
     {
       "id": "flask-fr-websockets",

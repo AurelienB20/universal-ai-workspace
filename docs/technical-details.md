@@ -103,6 +103,12 @@ overview, see the [README](../README.md).
     names, path and section weighted), queried with the question's words or code names,
     and merged with the vector ranking by Reciprocal Rank Fusion. Measured worse; see
     [ADR 0011](adr/0011-rank-tests-lower-hybrid-off.md).
+  - Reranking (`RERANK_MODEL=rerank-3`, on by default; empty turns it off): the 30 best
+    chunks (`RERANK_CANDIDATES`) are scored by a Voyage cross-encoder, with test files
+    down-weighted the same way, after the database connection is released. Its tokens count
+    in the Voyage budget, reserved before the question starts, and its score is kept in each
+    answer's trace and shown in the evidence panel. Flask MRR 0.81 → 0.90, about 0.4 s more
+    per search; see [ADR 0012](adr/0012-reranker-decided-by-a-pre-registered-test.md).
 - Retrieval evaluation (`uaw.evaluation`): labeled question sets and a command that
   reports hit@k, recall@k and MRR.
   - Each question is labeled with its evidence: files, or line ranges of them. Metrics

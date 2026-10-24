@@ -1,8 +1,9 @@
-"""Voyage AI embeddings client (https://docs.voyageai.com/reference/embeddings-api).
+"""Voyage AI clients: embeddings (https://docs.voyageai.com/reference/embeddings-api)
+and reranking (https://docs.voyageai.com/reference/reranker-api).
 
 Responsibilities: batching within the API limits, retries with exponential backoff
-on rate limits and server errors, and strict validation of the response (count,
-order, dimension), so that a vector can never be attached to the wrong chunk.
+on rate limits and server errors, and strict validation of the responses (count,
+order, dimension), so that a vector or a score can never be attached to the wrong chunk.
 """
 
 import asyncio
@@ -22,8 +23,11 @@ from uaw.usage.meter import record_usage
 logger = logging.getLogger(__name__)
 
 VOYAGE_EMBEDDINGS_URL = "https://api.voyageai.com/v1/embeddings"
+VOYAGE_RERANK_URL = "https://api.voyageai.com/v1/rerank"
 RETRYABLE_STATUSES = frozenset({429, 500, 502, 503, 504})
 MAX_RETRY_AFTER_SECONDS = 60.0
+# Documents per rerank request (the API accepts up to 1,000).
+MAX_RERANK_DOCUMENTS = 100
 
 InputType = Literal["document", "query"]
 Sleep = Callable[[float], Awaitable[None]]
@@ -43,16 +47,25 @@ class _EmbeddingsPayload(BaseModel):
     usage: _Usage
 
 
-class VoyageEmbedder:
+class _RerankItem(BaseModel):
+    index: int
+    relevance_score: float
+
+
+class _RerankPayload(BaseModel):
+    data: list[_RerankItem]
+    usage: _Usage
+
+
+class _VoyageClient:
+    """Authentication and retries shared by the Voyage endpoints."""
+
     def __init__(
         self,
         http: httpx.AsyncClient,
         *,
         api_key: str,
         model: str,
-        dimensions: int,
-        max_batch_size: int = 128,
-        max_batch_chars: int = 200_000,
         max_retries: int = 4,
         backoff_base_seconds: float = 1.0,
         sleep: Sleep = asyncio.sleep,
@@ -62,9 +75,6 @@ class VoyageEmbedder:
         self._http = http
         self._api_key = api_key
         self._model = model
-        self._dimensions = dimensions
-        self._max_batch_size = max_batch_size
-        self._max_batch_chars = max_batch_chars
         self._max_retries = max_retries
         self._backoff_base_seconds = backoff_base_seconds
         self._sleep = sleep
@@ -73,36 +83,12 @@ class VoyageEmbedder:
     def model(self) -> str:
         return self._model
 
-    async def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
-        vectors: list[list[float]] = []
-        for start, end in batch_ranges(
-            texts, max_items=self._max_batch_size, max_chars=self._max_batch_chars
-        ):
-            vectors.extend(await self._embed_batch(texts[start:end], "document"))
-        return vectors
-
-    async def embed_query(self, text: str) -> list[float]:
-        return (await self._embed_batch([text], "query"))[0]
-
-    async def _embed_batch(self, texts: Sequence[str], input_type: InputType) -> list[list[float]]:
-        body = {
-            "input": list(texts),
-            "model": self._model,
-            # Voyage prepends a retrieval prompt adapted to documents or queries.
-            "input_type": input_type,
-            "output_dimension": self._dimensions,
-            # Fail loudly rather than silently embedding a truncated text.
-            "truncation": False,
-        }
-        response = await self._post_with_retries(body)
-        return self._parse(response, expected=len(texts))
-
-    async def _post_with_retries(self, body: dict[str, object]) -> httpx.Response:
+    async def _post_with_retries(self, url: str, body: dict[str, object]) -> httpx.Response:
         headers = {"Authorization": f"Bearer {self._api_key}"}
         for attempt in range(self._max_retries + 1):
             is_last = attempt == self._max_retries
             try:
-                response = await self._http.post(VOYAGE_EMBEDDINGS_URL, json=body, headers=headers)
+                response = await self._http.post(url, json=body, headers=headers)
             except httpx.TransportError as exc:  # includes timeouts
                 if is_last:
                     raise EmbeddingUnavailableError("Could not reach Voyage AI.") from exc
@@ -129,6 +115,57 @@ class VoyageEmbedder:
         base = self._backoff_base_seconds * 2.0**attempt
         return base + random.uniform(0, self._backoff_base_seconds)
 
+
+class VoyageEmbedder(_VoyageClient):
+    def __init__(
+        self,
+        http: httpx.AsyncClient,
+        *,
+        api_key: str,
+        model: str,
+        dimensions: int,
+        max_batch_size: int = 128,
+        max_batch_chars: int = 200_000,
+        max_retries: int = 4,
+        backoff_base_seconds: float = 1.0,
+        sleep: Sleep = asyncio.sleep,
+    ) -> None:
+        super().__init__(
+            http,
+            api_key=api_key,
+            model=model,
+            max_retries=max_retries,
+            backoff_base_seconds=backoff_base_seconds,
+            sleep=sleep,
+        )
+        self._dimensions = dimensions
+        self._max_batch_size = max_batch_size
+        self._max_batch_chars = max_batch_chars
+
+    async def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
+        vectors: list[list[float]] = []
+        for start, end in batch_ranges(
+            texts, max_items=self._max_batch_size, max_chars=self._max_batch_chars
+        ):
+            vectors.extend(await self._embed_batch(texts[start:end], "document"))
+        return vectors
+
+    async def embed_query(self, text: str) -> list[float]:
+        return (await self._embed_batch([text], "query"))[0]
+
+    async def _embed_batch(self, texts: Sequence[str], input_type: InputType) -> list[list[float]]:
+        body = {
+            "input": list(texts),
+            "model": self._model,
+            # Voyage prepends a retrieval prompt adapted to documents or queries.
+            "input_type": input_type,
+            "output_dimension": self._dimensions,
+            # Fail loudly rather than silently embedding a truncated text.
+            "truncation": False,
+        }
+        response = await self._post_with_retries(VOYAGE_EMBEDDINGS_URL, body)
+        return self._parse(response, expected=len(texts))
+
     def _parse(self, response: httpx.Response, *, expected: int) -> list[list[float]]:
         try:
             payload = _EmbeddingsPayload.model_validate_json(response.content)
@@ -151,6 +188,40 @@ class VoyageEmbedder:
         return [item.embedding for item in sorted(payload.data, key=lambda item: item.index)]
 
 
+class VoyageReranker(_VoyageClient):
+    """Scores each document against the query, reading both together (a cross-encoder):
+    more precise than comparing two embeddings, slower, so it only reorders a short list."""
+
+    async def rerank(self, query: str, documents: Sequence[str]) -> list[float]:
+        """One relevance score per document, in input order (higher is more relevant)."""
+        if not documents:
+            return []
+        if len(documents) > MAX_RERANK_DOCUMENTS:
+            raise ValueError(f"At most {MAX_RERANK_DOCUMENTS} documents per rerank request")
+        body = {
+            "query": query,
+            "documents": list(documents),
+            "model": self._model,
+            # A long chunk is cut to the model's context rather than failing the
+            # question: the start of a chunk carries its path and definition.
+            "truncation": True,
+        }
+        response = await self._post_with_retries(VOYAGE_RERANK_URL, body)
+        try:
+            payload = _RerankPayload.model_validate_json(response.content)
+        except ValidationError as exc:
+            raise EmbeddingUnavailableError("Voyage AI returned an unexpected response.") from exc
+        record_usage("voyage", self._model, input_tokens=payload.usage.total_tokens)
+
+        # Scores are matched to documents by ``index``, never by position.
+        if sorted(item.index for item in payload.data) != list(range(len(documents))):
+            raise EmbeddingUnavailableError("Voyage AI returned an incomplete response.")
+        if not all(math.isfinite(item.relevance_score) for item in payload.data):
+            raise EmbeddingUnavailableError("Voyage AI returned an invalid score.")
+        scores = {item.index: item.relevance_score for item in payload.data}
+        return [scores[index] for index in range(len(documents))]
+
+
 def _retry_after(response: httpx.Response) -> float | None:
     value = response.headers.get("retry-after", "")
     try:
@@ -168,7 +239,7 @@ def _raise_for_status(response: httpx.Response) -> None:
     # 400 means a bug on our side (bad model name, text too long...): log the detail
     # for the operator, but do not show it to users.
     logger.error("Voyage rejected the request (%d): %s", status, response.text[:500])
-    raise EmbeddingUnavailableError("Voyage AI rejected the embedding request.")
+    raise EmbeddingUnavailableError("Voyage AI rejected the request.")
 
 
 def create_voyage_http_client(timeout_seconds: float) -> httpx.AsyncClient:

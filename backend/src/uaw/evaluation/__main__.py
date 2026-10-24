@@ -15,7 +15,7 @@ from pathlib import Path
 
 from uaw.config import Settings
 from uaw.embeddings.errors import EmbeddingError
-from uaw.embeddings.voyage import VoyageEmbedder, create_voyage_http_client
+from uaw.embeddings.voyage import VoyageEmbedder, VoyageReranker, create_voyage_http_client
 from uaw.evaluation.dataset import EvalDataset, Split, load_dataset
 from uaw.evaluation.runner import EvaluationError, EvaluationRun, evaluate_dataset, format_run
 from uaw.retrieval.retriever import RetrievalOptions, Retriever
@@ -29,6 +29,7 @@ async def run(
     top_k: int,
     split: Split | None = None,
     options: RetrievalOptions | None = None,
+    rerank_model: str = "",
 ) -> EvaluationRun:
     if settings.voyage_api_key is None:
         raise EvaluationError("VOYAGE_API_KEY is not set (environment or backend/.env).")
@@ -42,10 +43,18 @@ async def run(
                 dimensions=EMBEDDING_DIMENSIONS,
                 max_retries=settings.voyage_max_retries,
             )
+            reranker = None
+            if rerank_model:
+                reranker = VoyageReranker(
+                    http,
+                    api_key=settings.voyage_api_key.get_secret_value(),
+                    model=rerank_model,
+                    max_retries=settings.voyage_max_retries,
+                )
             sessions = create_session_factory(engine)
             return await evaluate_dataset(
                 dataset,
-                Retriever(sessions, embedder, options),
+                Retriever(sessions, embedder, options, reranker),
                 sessions,
                 top_k=top_k,
                 split=split,
@@ -84,6 +93,17 @@ def main(argv: list[str] | None = None) -> int:
         default=Settings.model_fields["retrieval_test_weight"].default,
         help="below 1, test files rank lower (default: the production setting)",
     )
+    parser.add_argument(
+        "--rerank-model",
+        default=Settings.model_fields["rerank_model"].default,
+        help="Voyage reranker, e.g. rerank-3 (default: the production setting)",
+    )
+    parser.add_argument(
+        "--rerank-candidates",
+        type=int,
+        default=Settings.model_fields["rerank_candidates"].default,
+        help="chunks given to the reranker",
+    )
     args = parser.parse_args(argv)
     if not 1 <= args.top_k <= 50:
         parser.error("--top-k must be between 1 and 50")
@@ -93,13 +113,16 @@ def main(argv: list[str] | None = None) -> int:
             text_weight=args.text_weight,
             text_terms=args.text_terms,
             test_weight=args.test_weight,
+            rerank_candidates=args.rerank_candidates,
         )
     except ValueError as exc:
         parser.error(str(exc))
 
     dataset = load_dataset(args.dataset)
     try:
-        result = asyncio.run(run(dataset, Settings(), args.top_k, args.split, options))
+        result = asyncio.run(
+            run(dataset, Settings(), args.top_k, args.split, options, args.rerank_model)
+        )
     except (EvaluationError, EmbeddingError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1

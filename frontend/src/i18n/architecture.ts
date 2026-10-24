@@ -222,11 +222,12 @@ const fr: ArchitectureContent = {
       },
       search: {
         title: "Recherche",
-        short: "Les 8 passages les plus proches",
+        short: "Les 8 passages les plus pertinents",
         what: [
           "La question est vectorisée, puis comparée aux passages du dernier snapshot prêt du dépôt (distance cosinus).",
           "Un index HNSW couvre tous les dépôts : pgvector continue son parcours jusqu'à trouver assez de passages du bon dépôt.",
           "Un dépôt vectorisé avec un autre modèle est refusé, au lieu de comparer des vecteurs incompatibles.",
+          "Les 30 meilleurs passages sont relus par un modèle de reclassement (Voyage rerank-3), qui lit la question et chaque passage ensemble ; les fichiers de test sont classés plus bas, sauf si la question parle de tests.",
         ],
         choice:
           "PostgreSQL + pgvector : les vecteurs et les métadonnées dans la même base transactionnelle.",
@@ -240,7 +241,7 @@ const fr: ArchitectureContent = {
             why: "Garde les voisins de toute la table puis les filtre tous : un test montre qu'elle perd chaque résultat.",
           },
         ],
-        figure: "Environ 1 s par recherche, appel d'embedding compris.",
+        figure: "Environ 0,6 s par recherche, embedding et reclassement compris.",
       },
       generate: {
         title: "Génération",
@@ -387,7 +388,7 @@ const fr: ArchitectureContent = {
       {
         title: "Mesurer avant d'optimiser",
         decision: "Un changement de la recherche n'est gardé que s'il améliore l'évaluation sur le jeu dev, puis sur le jeu test mis de côté.",
-        why: "Sans mesure, une technique à la mode peut dégrader la qualité sans qu'on le voie. C'est arrivé : la recherche hybride, construite puis mesurée, faisait moins bien, et reste désactivée ; classer les tests plus bas a fait passer le MRR de Flask de 0,71 à 0,81.",
+        why: "Sans mesure, une technique à la mode peut dégrader la qualité sans qu'on le voie. La recherche hybride faisait moins bien : elle reste désactivée. Classer les tests plus bas a fait passer le MRR de Flask de 0,71 à 0,81. Le reclassement semblait à égalité sur le jeu dev ; une règle fixée avant de lancer le jeu test a tranché : 0,76 → 0,91, il est activé (0,90 sur toutes les questions).",
         tradeoff: "Annoter des questions à la ligne près prend du temps, et une étiquette oubliée fait paraître la recherche moins bonne : les échecs sont relus un par un.",
         revisit: "Jamais : c'est la règle du projet.",
         code: "backend/src/uaw/evaluation/metrics.py",
@@ -431,12 +432,12 @@ const fr: ArchitectureContent = {
       { label: "Temps de réponse", value: "environ 10 s (7 à 12 s observés)" },
       { label: "Tokens par question", value: "1 800 à 5 800 en entrée, 400 à 900 en sortie" },
       { label: "Coût par question", value: "environ 0,03 $" },
-      { label: "Recherche sur Flask, au niveau des lignes", value: "hit@1 0,71 · recall@5 0,87 · MRR 0,81" },
-      { label: "Noms exacts / questions en français", value: "MRR 0,94 / 0,58" },
-      { label: "Tests", value: "503 backend, 32 frontend, en CI à chaque push" },
+      { label: "Recherche sur Flask, au niveau des lignes", value: "hit@1 0,86 · recall@5 0,92 · MRR 0,90" },
+      { label: "Noms exacts / questions en français", value: "MRR 1,00 / 1,00" },
+      { label: "Tests", value: "514 backend, 32 frontend, en CI à chaque push" },
     ],
     caveat:
-      "65 questions annotées à la ligne près sur deux dépôts, par catégorie, avec un jeu dev pour régler et un jeu test mis de côté. Classer les tests plus bas a corrigé les questions sur un nom exact ; les paraphrases et les questions en français restent les plus faibles : c'est là que viseront le reranking et la traduction des questions, gardés seulement s'ils font mieux sur ces chiffres.",
+      "65 questions annotées à la ligne près sur deux dépôts, par catégorie, avec un jeu dev pour régler et un jeu test mis de côté. Classer les tests plus bas a corrigé les questions sur un nom exact, le reclassement les questions en français ; les paraphrases (MRR 0,72) et les questions sur plusieurs fichiers (0,75) restent les plus faibles. Chaque changement n'est gardé que s'il fait mieux sur le jeu test.",
   },
 };
 
@@ -553,11 +554,12 @@ const en: ArchitectureContent = {
       },
       search: {
         title: "Search",
-        short: "The 8 closest passages",
+        short: "The 8 most relevant passages",
         what: [
           "The question is embedded, then compared with the passages of the repository's latest ready snapshot (cosine distance).",
           "One HNSW index covers every repository: pgvector keeps scanning until it finds enough passages of the right one.",
           "A repository embedded with another model is refused, instead of comparing incompatible vectors.",
+          "The 30 best passages are read again by a reranking model (Voyage rerank-3), which reads the question and each passage together; test files rank lower, unless the question is about tests.",
         ],
         choice: "PostgreSQL + pgvector: vectors and metadata in the same transactional database.",
         alternatives: [
@@ -570,7 +572,7 @@ const en: ArchitectureContent = {
             why: "Keeps the neighbours of the whole table, then filters them all out: a test shows it losing every result.",
           },
         ],
-        figure: "About 1 s per search, embedding call included.",
+        figure: "About 0.6 s per search, embedding and reranking included.",
       },
       generate: {
         title: "Generation",
@@ -717,7 +719,7 @@ const en: ArchitectureContent = {
       {
         title: "Measure before optimising",
         decision: "A retrieval change is kept only if it improves the evaluation on the dev split, then on the held-out test split.",
-        why: "Without measurement, a fashionable technique can lower quality unnoticed. It happened: hybrid search, built then measured, did worse and stays off; ranking tests lower raised the Flask MRR from 0.71 to 0.81.",
+        why: "Without measurement, a fashionable technique can lower quality unnoticed. Hybrid search did worse: it stays off. Ranking tests lower raised the Flask MRR from 0.71 to 0.81. Reranking looked level on the dev split; a rule fixed before running the test split settled it: 0.76 → 0.91, so it is on (0.90 over all questions).",
         tradeoff: "Labeling questions to the line takes time, and a missing label makes retrieval look worse than it is: misses are read one by one.",
         revisit: "Never: it is the project's rule.",
         code: "backend/src/uaw/evaluation/metrics.py",
@@ -761,12 +763,12 @@ const en: ArchitectureContent = {
       { label: "Answer time", value: "about 10 s (7 to 12 s observed)" },
       { label: "Tokens per question", value: "1,800 to 5,800 in, 400 to 900 out" },
       { label: "Cost per question", value: "about $0.03" },
-      { label: "Retrieval on Flask, at line level", value: "hit@1 0.71 · recall@5 0.87 · MRR 0.81" },
-      { label: "Exact names / questions in French", value: "MRR 0.94 / 0.58" },
-      { label: "Tests", value: "503 backend, 32 frontend, in CI on every push" },
+      { label: "Retrieval on Flask, at line level", value: "hit@1 0.86 · recall@5 0.92 · MRR 0.90" },
+      { label: "Exact names / questions in French", value: "MRR 1.00 / 1.00" },
+      { label: "Tests", value: "514 backend, 32 frontend, in CI on every push" },
     ],
     caveat:
-      "65 questions labeled to the line over two repositories, by category, with a dev split for tuning and a held-out test split. Ranking tests lower fixed questions about an exact name; paraphrases and French questions remain the weakest: that is where reranking and question translation will aim, kept only if they beat these numbers.",
+      "65 questions labeled to the line over two repositories, by category, with a dev split for tuning and a held-out test split. Ranking tests lower fixed questions about an exact name, reranking the questions in French; paraphrases (MRR 0.72) and multi-file questions (0.75) remain the weakest. Each change is kept only if it does better on the test split.",
   },
 };
 

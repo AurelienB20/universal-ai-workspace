@@ -82,7 +82,7 @@ async def generate_answer(
     settings: Settings = request.app.state.settings
     limiter: ConcurrencyLimiter = request.app.state.ask_limiter
     estimates: dict[Provider, int] = {
-        "voyage": settings.query_reserved_embedding_tokens,
+        "voyage": settings.query_reserved_voyage_tokens,
         "anthropic": settings.ask_reserved_llm_tokens,
     }
 

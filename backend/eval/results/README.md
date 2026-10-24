@@ -9,18 +9,59 @@ run with a reference with `python -m uaw.evaluation.compare <reference> <new>`.
 | `vector-only-<set>[-dev\|-test].json` | the first reference, vector search alone |
 | `experiments/` | the runs behind each decision below |
 
+Labels were completed after experiment 2 (three dev questions); the references were
+recorded again with them.
+
 `-dev` files hold the dev split (compare with them while tuning), `-test` files the test
 split (run once per finished change), the others every question.
 
-## Current setting: vector search, test files ranked lower
+## Current setting: vector search, test files ranked lower, reranker
 
-| Set (line level) | hit@1 | recall@5 | MRR |
+| Set (line level) | hit@1 | recall@5 | MRR | Median search time |
+|---|---|---|---|---|
+| pallets/flask, 35 questions | 0.86 | 0.92 | 0.90 | 0.61 s |
+| pallets/itsdangerous, 24 questions | 0.88 | 0.88 | 0.91 | 0.71 s |
+
+Flask by category (MRR): lookup 1.00, identifier 1.00, cross-lingual 1.00, multi-file 0.75,
+paraphrase 0.72. Without the reranker: Flask 0.81 and itsdangerous 0.94, in about 0.24 s.
+
+## Experiment 2: reranking (2026-10-24)
+
+The 30 best chunks of the current setting are reordered by a Voyage reranker, which reads
+the question and each chunk together (a cross-encoder). Dev split, line level. Runs:
+`experiments/2026-10-24-rerank/`.
+
+| Dev split | MRR, without reranker | MRR, `rerank-3` | MRR, `rerank-3-lite` | Median search time |
+|---|---|---|---|---|
+| Flask (18 questions) | 0.847 | 0.889 | 0.843 | 242 ms → 478 ms (`rerank-3`) |
+| itsdangerous (12 questions) | 0.958 | 0.892 | 0.931 | 233 ms → 529 ms |
+| Both (30 questions) | 0.891 | 0.890 | 0.878 | |
+
+- **First run: the reranker looked clearly worse** (Flask 0.847 → 0.796). Reading its
+  results, three of its "misses" were valid answers missing from the labels: the
+  "Registering" section of the error-handling guide, the tutorial template that shows
+  flashed messages, and the quickstart's custom 404 page. The labels were completed (dev
+  questions only, judged on their content), and both settings measured again. The current
+  setting did not change (those questions already found an answer first).
+- **With complete labels, no measurable gain:** +0.04 on Flask (3 questions up, 2 down,
+  within the noise of 18 questions), −0.07 on itsdangerous (it pushes the constant-time
+  comparison code out of the top 4 for the timing-attack question), level over both.
+- **It doubles the search time** (+240 ms median), on answers that take about 10 s.
+- **A test fixed in advance settled it.** The dev split was too small to tell; rather than
+  leave it there, a rule was written before running anything: Flask is the reference;
+  on its test split (17 questions never used for tuning), keep the reranker only if the
+  MRR rises by at least 0.05 with more questions up than down.
+
+| Test split, run once | MRR, without reranker | MRR, `rerank-3` | Questions up / down |
 |---|---|---|---|
-| pallets/flask, 35 questions | 0.71 | 0.87 | 0.81 |
-| pallets/itsdangerous, 24 questions | 0.92 | 0.81 | 0.94 |
+| Flask (17 questions), deciding | 0.76 | **0.91** | 4 / 2 (both by one rank) |
+| itsdangerous (12 questions), control only | 0.92 | 0.93 | 1 / 0 |
 
-Flask by category (MRR): lookup 0.94, identifier 0.94, multi-file 0.87, paraphrase 0.67,
-cross-lingual 0.58.
+- On Flask's test split, questions in French went from 0.42 to 1.00 and paraphrases from
+  0.58 to 0.81; the websockets question, missed by vector search, came first.
+- Decision: **on by default** (`RERANK_MODEL=rerank-3`). Over all questions: Flask 0.81 →
+  0.90, itsdangerous 0.94 → 0.91 (two dev questions; one is a real reranker error, which
+  reads "timing attack" as the timestamp code).
 
 ## Experiment 1: hybrid search and test files (2026-10-24)
 

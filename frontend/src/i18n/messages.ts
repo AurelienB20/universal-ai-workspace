@@ -60,6 +60,8 @@ const fr = {
     toggle: "Voir comment cette réponse a été construite",
     intro:
       "Ces passages ont été retrouvés par recherche vectorielle, du plus proche de la question (S1) au moins proche, puis donnés au modèle. Il ne peut citer qu'eux : le serveur vérifie chaque citation.",
+    introReranked:
+      "Ces passages ont été retrouvés par recherche vectorielle, puis relus par un modèle de reclassement qui les classe du plus pertinent (S1) au moins pertinent, avant d'être donnés au modèle. Il ne peut citer qu'eux : le serveur vérifie chaque citation.",
     summary: (passages: number, cited: number) =>
       `${passages} passages retrouvés, ${cited} cité${cited > 1 ? "s" : ""} dans la réponse`,
     timings: (retrieval: string, generation: string) =>
@@ -72,6 +74,7 @@ const fr = {
     cited: "cité",
     notCited: "non cité",
     score: "similarité (0 à 1)",
+    rerankScore: "pertinence (0 à 1)",
     showContent: "Voir le passage",
   },
 
@@ -159,6 +162,8 @@ const en: Messages = {
     toggle: "See how this answer was built",
     intro:
       "These passages were found by vector search, from the closest to the question (S1) to the least close, then given to the model. It can only cite them: the server checks every citation.",
+    introReranked:
+      "These passages were found by vector search, then read by a reranking model that orders them from the most relevant (S1) to the least, before being given to the model. It can only cite them: the server checks every citation.",
     summary: (passages, cited) => `${passages} passages retrieved, ${cited} cited in the answer`,
     timings: (retrieval, generation) => `Search ${retrieval} · generation ${generation}`,
     tokens: (input, output) => `${input} input tokens, ${output} output`,
@@ -169,6 +174,7 @@ const en: Messages = {
     cited: "cited",
     notCited: "not cited",
     score: "similarity (0 to 1)",
+    rerankScore: "relevance (0 to 1)",
     showContent: "Show the passage",
   },
 

@@ -4,11 +4,12 @@ import logging
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
 
+import httpx2 as httpx
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from uaw.config import Settings
 from uaw.connectors.github.connector import build_github_connector, create_github_http_client
-from uaw.embeddings.voyage import VoyageEmbedder, create_voyage_http_client
+from uaw.embeddings.voyage import VoyageEmbedder, VoyageReranker, create_voyage_http_client
 from uaw.generation.answerer import Answerer
 from uaw.generation.claude import ClaudeAnswerModel, create_anthropic_client
 from uaw.ingestion.pipeline import IngestionPipeline
@@ -95,7 +96,9 @@ async def build_services(settings: Settings, stack: AsyncExitStack) -> Services:
             mode=settings.retrieval_mode,
             text_weight=settings.retrieval_text_weight,
             test_weight=settings.retrieval_test_weight,
+            rerank_candidates=settings.rerank_candidates,
         ),
+        reranker=_build_reranker(settings, voyage_http),
     )
     return Services(
         session_factory=session_factory,
@@ -126,3 +129,14 @@ def _build_answerer(
         refusal_fallback=settings.llm_refusal_fallback,
     )
     return Answerer(retriever, model, top_k=settings.answer_top_k)
+
+
+def _build_reranker(settings: Settings, http: httpx.AsyncClient) -> VoyageReranker | None:
+    if not settings.rerank_model or settings.voyage_api_key is None:
+        return None
+    return VoyageReranker(
+        http,
+        api_key=settings.voyage_api_key.get_secret_value(),
+        model=settings.rerank_model,
+        max_retries=settings.voyage_max_retries,
+    )
