@@ -18,13 +18,17 @@ from uaw.embeddings.errors import EmbeddingError
 from uaw.embeddings.voyage import VoyageEmbedder, create_voyage_http_client
 from uaw.evaluation.dataset import EvalDataset, Split, load_dataset
 from uaw.evaluation.runner import EvaluationError, EvaluationRun, evaluate_dataset, format_run
-from uaw.retrieval.retriever import Retriever
+from uaw.retrieval.retriever import RetrievalOptions, Retriever
 from uaw.storage.db import create_engine, create_session_factory
 from uaw.storage.models import EMBEDDING_DIMENSIONS
 
 
 async def run(
-    dataset: EvalDataset, settings: Settings, top_k: int, split: Split | None = None
+    dataset: EvalDataset,
+    settings: Settings,
+    top_k: int,
+    split: Split | None = None,
+    options: RetrievalOptions | None = None,
 ) -> EvaluationRun:
     if settings.voyage_api_key is None:
         raise EvaluationError("VOYAGE_API_KEY is not set (environment or backend/.env).")
@@ -40,7 +44,11 @@ async def run(
             )
             sessions = create_session_factory(engine)
             return await evaluate_dataset(
-                dataset, Retriever(sessions, embedder), sessions, top_k=top_k, split=split
+                dataset,
+                Retriever(sessions, embedder, options),
+                sessions,
+                top_k=top_k,
+                split=split,
             )
     finally:
         await engine.dispose()
@@ -58,13 +66,40 @@ def main(argv: list[str] | None = None) -> int:
         choices=["dev", "test"],
         help="only the questions of this split (default: all). Tune on dev, report on test.",
     )
+    parser.add_argument(
+        "--mode", choices=["vector", "hybrid"], default="vector", help="retrieval mode"
+    )
+    parser.add_argument(
+        "--text-weight", type=float, default=1.0, help="weight of full text in hybrid mode"
+    )
+    parser.add_argument(
+        "--text-terms",
+        choices=["names", "words"],
+        default="names",
+        help="full text matches the question's code names, or every word",
+    )
+    parser.add_argument(
+        "--test-weight",
+        type=float,
+        default=Settings.model_fields["retrieval_test_weight"].default,
+        help="below 1, test files rank lower (default: the production setting)",
+    )
     args = parser.parse_args(argv)
     if not 1 <= args.top_k <= 50:
         parser.error("--top-k must be between 1 and 50")
+    try:
+        options = RetrievalOptions(
+            mode=args.mode,
+            text_weight=args.text_weight,
+            text_terms=args.text_terms,
+            test_weight=args.test_weight,
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
 
     dataset = load_dataset(args.dataset)
     try:
-        result = asyncio.run(run(dataset, Settings(), args.top_k, args.split))
+        result = asyncio.run(run(dataset, Settings(), args.top_k, args.split, options))
     except (EvaluationError, EmbeddingError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1

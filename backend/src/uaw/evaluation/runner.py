@@ -1,5 +1,7 @@
 """Run a labeled question set against the retriever and report the metrics."""
 
+from dataclasses import asdict
+
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -24,6 +26,8 @@ class EvaluationRun(BaseModel):
     top_k: int
     # None: every question.
     split: Split | None
+    # How retrieval was configured (absent from reports made before hybrid search).
+    retrieval: dict[str, object] | None = None
     report: RetrievalReport
 
 
@@ -92,6 +96,7 @@ async def evaluate_dataset(
         commit_sha=snapshot.commit_sha,
         top_k=top_k,
         split=split,
+        retrieval=asdict(retriever.options),
         report=evaluate(runs, [k for k in REPORTED_KS if k <= top_k]),
     )
 

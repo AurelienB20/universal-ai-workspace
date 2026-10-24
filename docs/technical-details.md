@@ -94,6 +94,15 @@ overview, see the [README](../README.md).
     nearest chunks of the whole table, then filter them all out. pgvector's iterative
     index scans keep scanning until enough rows match. An integration test forces this
     plan and shows the plain query losing every result.
+  - Test files rank lower (`RETRIEVAL_TEST_WEIGHT=0.5`, their score halved), except for
+    questions that mention tests: tests repeat names, so they used to outrank the code
+    for questions about a name. Measured on the evaluation, kept after the held-out split
+    confirmed it (Flask MRR 0.71 → 0.81).
+  - Hybrid search is implemented and off (`RETRIEVAL_MODE=hybrid` turns it on): a
+    `tsvector` column with a GIN index (`simple` configuration, joined forms of snake_case
+    names, path and section weighted), queried with the question's words or code names,
+    and merged with the vector ranking by Reciprocal Rank Fusion. Measured worse; see
+    [ADR 0011](adr/0011-rank-tests-lower-hybrid-off.md).
 - Retrieval evaluation (`uaw.evaluation`): labeled question sets and a command that
   reports hit@k, recall@k and MRR.
   - Each question is labeled with its evidence: files, or line ranges of them. Metrics

@@ -127,6 +127,33 @@ class ChunkSearch:
             for row, path, language, dist in (await self._session.execute(stmt)).all()
         ]
 
+    async def chunks_by_id(
+        self, snapshot_id: uuid.UUID, ids: Sequence[uuid.UUID], query_vector: Sequence[float]
+    ) -> dict[uuid.UUID, ChunkMatch]:
+        """The given chunks of the snapshot, with their distance to the query (for chunks
+        found by full-text search, whose similarity is still shown to users)."""
+        if not ids:
+            return {}
+        distance = ChunkRow.embedding.cosine_distance(list(query_vector)).label("distance")
+        stmt = (
+            select(ChunkRow, DocumentRow.path, DocumentRow.language, distance)
+            .join(DocumentRow, ChunkRow.document_id == DocumentRow.id)
+            .where(ChunkRow.snapshot_id == snapshot_id, ChunkRow.id.in_(ids))
+        )
+        return {
+            row.id: ChunkMatch(
+                chunk_id=row.id,
+                path=path,
+                language=language,
+                start_line=row.start_line,
+                end_line=row.end_line,
+                section=row.section,
+                content=row.content,
+                distance=dist,
+            )
+            for row, path, language, dist in (await self._session.execute(stmt)).all()
+        }
+
     async def document_paths(self, snapshot_id: uuid.UUID) -> set[str]:
         stmt = select(DocumentRow.path).where(DocumentRow.snapshot_id == snapshot_id)
         return set((await self._session.scalars(stmt)).all())

@@ -13,7 +13,7 @@ from uaw.generation.answerer import Answerer
 from uaw.generation.claude import ClaudeAnswerModel, create_anthropic_client
 from uaw.ingestion.pipeline import IngestionPipeline
 from uaw.ingestion.runner import IngestionRunner
-from uaw.retrieval.retriever import Retriever
+from uaw.retrieval.retriever import RetrievalOptions, Retriever
 from uaw.storage.db import create_engine, create_session_factory
 from uaw.storage.jobs import JobStore
 from uaw.storage.models import EMBEDDING_DIMENSIONS
@@ -88,7 +88,15 @@ async def build_services(settings: Settings, stack: AsyncExitStack) -> Services:
     )
     runner = IngestionRunner(pipeline, max_concurrent=settings.max_concurrent_imports, usage=usage)
     stack.push_async_callback(runner.shutdown)
-    retriever = Retriever(session_factory, embedder)
+    retriever = Retriever(
+        session_factory,
+        embedder,
+        RetrievalOptions(
+            mode=settings.retrieval_mode,
+            text_weight=settings.retrieval_text_weight,
+            test_weight=settings.retrieval_test_weight,
+        ),
+    )
     return Services(
         session_factory=session_factory,
         runner=runner,

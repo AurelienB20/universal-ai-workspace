@@ -16,6 +16,7 @@ kept in the order the decisions were made.
 | [0008](0008-nextjs-server-as-proxy.md) | The browser talks to the Next.js server, which holds the API key | 2026-10-24 |
 | [0009](0009-budget-reservations.md) | Daily budgets are reserved atomically, under a PostgreSQL lock | 2026-10-24 |
 | [0010](0010-cached-answers-labelled.md) | Suggested questions are answered once and served from a labelled cache | 2026-10-24 |
+| [0011](0011-rank-tests-lower-hybrid-off.md) | Test files rank lower; hybrid search is measured, and left off | 2026-10-24 |
 
 The *How it is built* page of the web interface presents the same decisions in a shorter
 form, in French and English.

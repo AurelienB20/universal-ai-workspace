@@ -1,0 +1,540 @@
+{
+  "repository": "pallets/itsdangerous",
+  "commit_sha": "672971d66a2ef9f85151e53283113f33d642dabd",
+  "top_k": 10,
+  "split": "dev",
+  "retrieval": {
+    "mode": "hybrid",
+    "text_weight": 1.0,
+    "test_weight": 1.0,
+    "candidates": 50,
+    "rrf_k": 60
+  },
+  "report": {
+    "answerable": 12,
+    "unanswerable": 1,
+    "overall": {
+      "files": {
+        "questions": 12,
+        "hit_rate": {
+          "1": 0.8333333333333334,
+          "3": 0.9166666666666666,
+          "5": 0.9166666666666666,
+          "10": 1.0
+        },
+        "recall": {
+          "1": 0.6944444444444445,
+          "3": 0.8472222222222222,
+          "5": 0.8472222222222222,
+          "10": 0.9583333333333334
+        },
+        "mrr": 0.8888888888888888
+      },
+      "lines": {
+        "questions": 12,
+        "hit_rate": {
+          "1": 0.6666666666666666,
+          "3": 0.6666666666666666,
+          "5": 0.8333333333333334,
+          "10": 0.9166666666666666
+        },
+        "recall": {
+          "1": 0.5277777777777778,
+          "3": 0.5972222222222222,
+          "5": 0.7638888888888888,
+          "10": 0.8472222222222222
+        },
+        "mrr": 0.7166666666666667
+      }
+    },
+    "by_category": {
+      "cross-lingual": {
+        "files": {
+          "questions": 1,
+          "hit_rate": {
+            "1": 0.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "recall": {
+            "1": 0.0,
+            "3": 0.5,
+            "5": 0.5,
+            "10": 1.0
+          },
+          "mrr": 0.5
+        },
+        "lines": {
+          "questions": 1,
+          "hit_rate": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 0.0,
+            "10": 1.0
+          },
+          "recall": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 0.0,
+            "10": 0.5
+          },
+          "mrr": 0.1
+        }
+      },
+      "identifier": {
+        "files": {
+          "questions": 1,
+          "hit_rate": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "recall": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "mrr": 1.0
+        },
+        "lines": {
+          "questions": 1,
+          "hit_rate": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "recall": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "mrr": 1.0
+        }
+      },
+      "lookup": {
+        "files": {
+          "questions": 7,
+          "hit_rate": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "recall": {
+            "1": 0.8571428571428571,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "mrr": 1.0
+        },
+        "lines": {
+          "questions": 7,
+          "hit_rate": {
+            "1": 0.7142857142857143,
+            "3": 0.7142857142857143,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "recall": {
+            "1": 0.5714285714285714,
+            "3": 0.6428571428571429,
+            "5": 0.9285714285714286,
+            "10": 1.0
+          },
+          "mrr": 0.7857142857142857
+        }
+      },
+      "multi-file": {
+        "files": {
+          "questions": 1,
+          "hit_rate": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "recall": {
+            "1": 0.3333333333333333,
+            "3": 0.6666666666666666,
+            "5": 0.6666666666666666,
+            "10": 1.0
+          },
+          "mrr": 1.0
+        },
+        "lines": {
+          "questions": 1,
+          "hit_rate": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "recall": {
+            "1": 0.3333333333333333,
+            "3": 0.6666666666666666,
+            "5": 0.6666666666666666,
+            "10": 0.6666666666666666
+          },
+          "mrr": 1.0
+        }
+      },
+      "paraphrase": {
+        "files": {
+          "questions": 2,
+          "hit_rate": {
+            "1": 0.5,
+            "3": 0.5,
+            "5": 0.5,
+            "10": 1.0
+          },
+          "recall": {
+            "1": 0.5,
+            "3": 0.5,
+            "5": 0.5,
+            "10": 0.75
+          },
+          "mrr": 0.5833333333333334
+        },
+        "lines": {
+          "questions": 2,
+          "hit_rate": {
+            "1": 0.5,
+            "3": 0.5,
+            "5": 0.5,
+            "10": 0.5
+          },
+          "recall": {
+            "1": 0.5,
+            "3": 0.5,
+            "5": 0.5,
+            "10": 0.5
+          },
+          "mrr": 0.5
+        }
+      }
+    },
+    "outcomes": [
+      {
+        "question_id": "q01-constant-time",
+        "category": "lookup",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.5411466037543662
+      },
+      {
+        "question_id": "q03-token-expiry",
+        "category": "lookup",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 0.5,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.5,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.5918209905517702
+      },
+      {
+        "question_id": "q05-key-rotation",
+        "category": "lookup",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 0.5,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.5,
+            "3": 0.5,
+            "5": 0.5,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.7374670945088336
+      },
+      {
+        "question_id": "q07-base64-padding",
+        "category": "lookup",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.5651073792640803
+      },
+      {
+        "question_id": "q09-upgrade-digest",
+        "category": "multi-file",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 0.3333333333333333,
+            "3": 0.6666666666666666,
+            "5": 0.6666666666666666,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.3333333333333333,
+            "3": 0.6666666666666666,
+            "5": 0.6666666666666666,
+            "10": 0.6666666666666666
+          }
+        },
+        "top_score": 0.5478427410125771
+      },
+      {
+        "question_id": "q11-salt",
+        "category": "lookup",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.6818384311391842
+      },
+      {
+        "question_id": "q13-none-algorithm",
+        "category": "paraphrase",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.6900662183761597
+      },
+      {
+        "question_id": "q15-expiry-tests",
+        "category": "lookup",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 4
+        },
+        "recall": {
+          "files": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.6636209493361218
+      },
+      {
+        "question_id": "q17-changelog",
+        "category": "lookup",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 4
+        },
+        "recall": {
+          "files": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.6202300190925598
+      },
+      {
+        "question_id": "q19-fr-bad-payload",
+        "category": "cross-lingual",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 2,
+          "lines": 10
+        },
+        "recall": {
+          "files": {
+            "1": 0.0,
+            "3": 0.5,
+            "5": 0.5,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 0.0,
+            "10": 0.5
+          }
+        },
+        "top_score": 0.5645704605919407
+      },
+      {
+        "question_id": "q22-link-valid-one-day",
+        "category": "paraphrase",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 6,
+          "lines": null
+        },
+        "recall": {
+          "files": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 0.0,
+            "10": 0.5
+          },
+          "lines": {
+            "1": 0.0,
+            "3": 0.0,
+            "5": 0.0,
+            "10": 0.0
+          }
+        },
+        "top_score": 0.4453892772925794
+      },
+      {
+        "question_id": "q24-bad-time-signature-date",
+        "category": "identifier",
+        "split": "dev",
+        "answerable": true,
+        "first_relevant_rank": {
+          "files": 1,
+          "lines": 1
+        },
+        "recall": {
+          "files": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          },
+          "lines": {
+            "1": 1.0,
+            "3": 1.0,
+            "5": 1.0,
+            "10": 1.0
+          }
+        },
+        "top_score": 0.6099969381095814
+      },
+      {
+        "question_id": "q26-no-rsa",
+        "category": "unanswerable",
+        "split": "dev",
+        "answerable": false,
+        "first_relevant_rank": {
+          "files": null,
+          "lines": null
+        },
+        "recall": {
+          "files": {},
+          "lines": {}
+        },
+        "top_score": 0.4893239730193608
+      }
+    ]
+  }
+}

@@ -102,6 +102,13 @@ class Settings(BaseSettings):
     llm_max_tokens: int = Field(default=2_000, gt=0, le=64_000)
     llm_timeout_seconds: float = Field(default=120.0, gt=0, le=600)
     llm_max_retries: int = Field(default=2, ge=0, le=10)
+    # Retrieval: "vector" (embeddings only) or "hybrid" (embeddings and full text, fused
+    # with RRF). Change only on evaluation results (backend/eval/results).
+    retrieval_mode: Literal["vector", "hybrid"] = "vector"
+    retrieval_text_weight: float = Field(default=1.0, ge=0, le=10)
+    # Below 1, chunks from test files rank lower (except for questions about tests).
+    # Measured: 0.5 raises the line-level MRR on Flask from 0.68 to 0.76 (test split).
+    retrieval_test_weight: float = Field(default=0.5, gt=0, le=1)
     # On a safety refusal, the API retries the request on a model it picks for the
     # refusal category, inside the same call.
     llm_refusal_fallback: bool = True

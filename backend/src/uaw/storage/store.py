@@ -18,6 +18,7 @@ from uaw.connectors.github.client import RepositoryInfo
 from uaw.domain.chunks import Chunk
 from uaw.domain.documents import SourceDocument
 from uaw.domain.jobs import ACTIVE_JOB_STATUSES
+from uaw.storage.fulltext import index_snapshot_text
 from uaw.storage.models import (
     EMBEDDING_DIMENSIONS,
     ChunkRow,
@@ -191,7 +192,8 @@ class SnapshotStore:
             )
 
     async def mark_snapshot_ready(self, snapshot_id: uuid.UUID) -> None:
-        """Make the snapshot searchable. Every chunk must have its embedding."""
+        """Make the snapshot searchable. Every chunk must have its embedding; the
+        full-text vectors are computed here, in the same transaction."""
         missing = await self._session.scalar(
             select(func.count())
             .select_from(ChunkRow)
@@ -199,6 +201,7 @@ class SnapshotStore:
         )
         if missing:
             raise ValueError(f"{missing} chunks of snapshot {snapshot_id} have no embedding")
+        await index_snapshot_text(self._session, snapshot_id)
         await self._session.execute(
             update(SnapshotRow)
             .where(SnapshotRow.id == snapshot_id)

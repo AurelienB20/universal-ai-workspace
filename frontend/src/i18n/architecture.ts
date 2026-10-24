@@ -386,8 +386,8 @@ const fr: ArchitectureContent = {
       },
       {
         title: "Mesurer avant d'optimiser",
-        decision: "Recherche hybride et reranking ne seront ajoutés que s'ils améliorent une évaluation mesurée.",
-        why: "Sans mesure, une technique à la mode peut dégrader la qualité sans qu'on le voie.",
+        decision: "Un changement de la recherche n'est gardé que s'il améliore l'évaluation sur le jeu dev, puis sur le jeu test mis de côté.",
+        why: "Sans mesure, une technique à la mode peut dégrader la qualité sans qu'on le voie. C'est arrivé : la recherche hybride, construite puis mesurée, faisait moins bien, et reste désactivée ; classer les tests plus bas a fait passer le MRR de Flask de 0,71 à 0,81.",
         tradeoff: "Annoter des questions à la ligne près prend du temps, et une étiquette oubliée fait paraître la recherche moins bonne : les échecs sont relus un par un.",
         revisit: "Jamais : c'est la règle du projet.",
         code: "backend/src/uaw/evaluation/metrics.py",
@@ -431,12 +431,12 @@ const fr: ArchitectureContent = {
       { label: "Temps de réponse", value: "environ 10 s (7 à 12 s observés)" },
       { label: "Tokens par question", value: "1 800 à 5 800 en entrée, 400 à 900 en sortie" },
       { label: "Coût par question", value: "environ 0,03 $" },
-      { label: "Recherche sur Flask, au niveau des lignes", value: "hit@1 0,63 · recall@5 0,82 · MRR 0,71" },
-      { label: "Questions avec les mots du code / en français", value: "MRR 0,91 / 0,44" },
-      { label: "Tests", value: "479 backend, 32 frontend, en CI à chaque push" },
+      { label: "Recherche sur Flask, au niveau des lignes", value: "hit@1 0,71 · recall@5 0,87 · MRR 0,81" },
+      { label: "Noms exacts / questions en français", value: "MRR 0,94 / 0,58" },
+      { label: "Tests", value: "503 backend, 32 frontend, en CI à chaque push" },
     ],
     caveat:
-      "65 questions annotées à la ligne près sur deux dépôts, par catégorie, avec un jeu dev pour régler et un jeu test mis de côté. La recherche vectorielle seule réussit les questions posées avec les mots du code, beaucoup moins les paraphrases et les questions en français : c'est là que viseront la recherche hybride et le reranking, gardés seulement s'ils font mieux sur ces chiffres.",
+      "65 questions annotées à la ligne près sur deux dépôts, par catégorie, avec un jeu dev pour régler et un jeu test mis de côté. Classer les tests plus bas a corrigé les questions sur un nom exact ; les paraphrases et les questions en français restent les plus faibles : c'est là que viseront le reranking et la traduction des questions, gardés seulement s'ils font mieux sur ces chiffres.",
   },
 };
 
@@ -716,8 +716,8 @@ const en: ArchitectureContent = {
       },
       {
         title: "Measure before optimising",
-        decision: "Hybrid search and reranking will only be added if they improve a measured evaluation.",
-        why: "Without measurement, a fashionable technique can lower quality unnoticed.",
+        decision: "A retrieval change is kept only if it improves the evaluation on the dev split, then on the held-out test split.",
+        why: "Without measurement, a fashionable technique can lower quality unnoticed. It happened: hybrid search, built then measured, did worse and stays off; ranking tests lower raised the Flask MRR from 0.71 to 0.81.",
         tradeoff: "Labeling questions to the line takes time, and a missing label makes retrieval look worse than it is: misses are read one by one.",
         revisit: "Never: it is the project's rule.",
         code: "backend/src/uaw/evaluation/metrics.py",
@@ -761,12 +761,12 @@ const en: ArchitectureContent = {
       { label: "Answer time", value: "about 10 s (7 to 12 s observed)" },
       { label: "Tokens per question", value: "1,800 to 5,800 in, 400 to 900 out" },
       { label: "Cost per question", value: "about $0.03" },
-      { label: "Retrieval on Flask, at line level", value: "hit@1 0.63 · recall@5 0.82 · MRR 0.71" },
-      { label: "Questions in the code's words / in French", value: "MRR 0.91 / 0.44" },
-      { label: "Tests", value: "479 backend, 32 frontend, in CI on every push" },
+      { label: "Retrieval on Flask, at line level", value: "hit@1 0.71 · recall@5 0.87 · MRR 0.81" },
+      { label: "Exact names / questions in French", value: "MRR 0.94 / 0.58" },
+      { label: "Tests", value: "503 backend, 32 frontend, in CI on every push" },
     ],
     caveat:
-      "65 questions labeled to the line over two repositories, by category, with a dev split for tuning and a held-out test split. Vector search alone handles questions in the code's words well, paraphrases and French questions much less: that is where hybrid search and reranking will aim, kept only if they beat these numbers.",
+      "65 questions labeled to the line over two repositories, by category, with a dev split for tuning and a held-out test split. Ranking tests lower fixed questions about an exact name; paraphrases and French questions remain the weakest: that is where reranking and question translation will aim, kept only if they beat these numbers.",
   },
 };
 

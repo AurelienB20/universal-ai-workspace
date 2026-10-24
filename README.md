@@ -88,23 +88,25 @@ On [pallets/itsdangerous](https://github.com/pallets/itsdangerous) (41 files, 99
 
 **Retrieval** is measured on 65 labeled questions over two repositories, at **line level**
 (a passage counts only if it overlaps the lines that answer), by category, with separate
-dev and test splits. Vector search alone, on
-[pallets/flask](https://github.com/pallets/flask) (216 files, 1,013 passages):
+dev and test splits. On [pallets/flask](https://github.com/pallets/flask) (216 files,
+1,013 passages):
 
-| Questions | hit@1 | recall@5 | MRR |
-|---|---|---|---|
-| All (35 scored) | 0.63 | 0.82 | 0.71 |
-| Asked with the code's words (`lookup`) | 0.88 | 1.00 | 0.91 |
-| Exact names (`identifier`) | 0.62 | 0.94 | 0.72 |
-| Without the code's words (`paraphrase`) | 0.50 | 0.75 | 0.62 |
-| In French (`cross-lingual`) | 0.33 | 0.58 | 0.44 |
+| Questions (MRR) | Vector search alone | Current: test files ranked lower |
+|---|---|---|
+| All (35 scored) | 0.71 | **0.81** |
+| Asked with the code's words (`lookup`) | 0.91 | 0.94 |
+| Exact names (`identifier`) | 0.72 | **0.94** |
+| Without the code's words (`paraphrase`) | 0.62 | 0.67 |
+| In French (`cross-lingual`) | 0.44 | 0.58 |
 
-The weak spots are where the next changes aim: tests outrank the code for exact names,
-paraphrases miss, French questions rank low. Questions without an answer still reach a
-similarity of 0.49-0.54, so a threshold cannot replace the model's "insufficient context".
-The [analysis](backend/eval/results/README.md) reads the misses one by one.
+Each change is tuned on the dev split and kept only if the held-out test split confirms it.
+Hybrid search (full text + vectors, RRF) was built and measured: it made results worse, so
+it is off ([ADR 0011](docs/adr/0011-rank-tests-lower-hybrid-off.md)). Ranking test files
+lower is what fixed exact names. Questions without an answer still reach a similarity of
+0.49-0.54, so a threshold cannot replace the model's "insufficient context". The
+[analysis](backend/eval/results/README.md) reads the misses one by one.
 
-**Tests:** 479 backend tests (unit, and integration against a real PostgreSQL), 32 frontend
+**Tests:** 503 backend tests (unit, and integration against a real PostgreSQL), 32 frontend
 tests, strict typing (mypy, TypeScript), all run in CI along with both production Docker
 image builds.
 
@@ -150,8 +152,10 @@ server (Caddy, HTTPS, backups), with the same stack CI runs on every push:
 - [ ] Streaming answers (server-sent events).
 - [x] **Harder evaluation:** line-level labels, categories, dev and test splits, a recorded
   baseline and a comparison command.
-- [ ] Hybrid search (full text + vectors, RRF), then reranking, each kept only if the dev
-  split improves and the test split confirms it.
+- [x] **First retrieval experiment:** hybrid search measured (worse, left off); test files
+  ranked lower (Flask MRR 0.71 → 0.81, confirmed on the test split).
+- [ ] Reranking, then translating non-English questions, each kept only if the dev split
+  improves and the test split confirms it.
 - [ ] More sources (PostgreSQL, PDF), multi-user workspaces.
 
 ## License

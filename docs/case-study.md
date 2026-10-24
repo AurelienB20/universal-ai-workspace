@@ -14,8 +14,8 @@ reviewed before the next.
 - **What makes it hard:** citations that cannot be invented, repositories treated as
   hostile input, a public demo that strangers cannot abuse or turn into a bill, and the
   discipline to measure before optimising.
-- **Results:** about 10 s and $0.03 per answer, 479 backend and 32 frontend tests, every
-  check in CI, and eight problems found by tests, an audit or by using the real system,
+- **Results:** about 10 s and $0.03 per answer, 503 backend and 32 frontend tests, every
+  check in CI, and nine problems found by tests, an audit, measurements or the real system,
   described below.
 
 ## The problem
@@ -115,6 +115,19 @@ using the real system, and each fix is covered by a test.
    about a name, and one "miss" was my own incomplete label (a documentation page about the
    very function asked about). [Analysis](../backend/eval/results/README.md).
 
+9. **The textbook fix made things worse.** Hybrid search (full text with vectors, fused
+   with RRF) is the usual answer to exact-name queries, so I built it: a `tsvector` column,
+   a configuration that keeps code words, joined forms of snake_case names. Measured on the
+   dev split, it lowered the Flask MRR from 0.74 to 0.50: common words matched file names
+   (`pull_request_template.md` for "request") and PostgreSQL's ranking ignores word rarity.
+   Restricted to code names, it still did nothing useful, because the passages containing a
+   name are mostly tests. What worked was the plain fix the baseline pointed to: rank test
+   files lower, except for questions about tests. Flask MRR 0.71 → 0.81, confirmed on the
+   held-out split with no question worse. Hybrid search stays in the code, off
+   ([ADR 0011](adr/0011-rank-tests-lower-hybrid-off.md)). Measuring also caught a bug: an
+   escaping mistake had turned the `\b` of the "mentions tests" rule into a control
+   character, so the rule never matched; the itsdangerous score gave it away.
+
 ## Measurements
 
 Answers on `pallets/itsdangerous` (41 files, 99 passages) with Claude Opus 5.5 at effort
@@ -125,14 +138,15 @@ Answers on `pallets/itsdangerous` (41 files, 99 passages) with Claude Opus 5.5 a
 | Answer time | about 10 s (7 to 12 s observed): ~1 s retrieval, ~8 s generation |
 | Tokens per question | 1,800 to 5,800 in, 400 to 900 out |
 | Cost per question | about $0.03; every model call is metered and stored |
-| Retrieval on Flask (35 scored questions, line level) | hit@1 0.63, recall@5 0.82, MRR 0.71 |
-| ... by category (MRR) | lookup 0.91, multi-file 0.85, identifier 0.72, paraphrase 0.62, French 0.44 |
-| Tests | 479 backend (unit and PostgreSQL integration), 32 frontend; CI on every push |
+| Retrieval on Flask (35 scored questions, line level) | hit@1 0.71, recall@5 0.87, MRR 0.81 (vector search alone: 0.63, 0.82, 0.71) |
+| ... by category (MRR) | lookup 0.94, identifier 0.94, multi-file 0.87, paraphrase 0.67, French 0.58 |
+| Tests | 503 backend (unit and PostgreSQL integration), 32 frontend; CI on every push |
 
 ## What I would do next
 
-1. **Hybrid search** (PostgreSQL full text with vectors, fused with RRF), aimed at exact
-   names, then a **reranker**, then translating non-English questions, each kept only if
+1. **A reranker** on the top passages (aimed at multi-file questions and paraphrases), then
+   **translating non-English questions** before embedding them, then a full-text ranking
+   that knows word rarity (BM25) to give hybrid search another chance; each kept only if
    the dev split improves and the held-out test split confirms it.
 2. **Streaming answers** (server-sent events): sources first, then the text, then the
    server-validated citations.
@@ -148,7 +162,10 @@ Answers on `pallets/itsdangerous` (41 files, 99 passages) with Claude Opus 5.5 a
   a check.
 - **A test should be able to fail.** Breaking the code on purpose (removing the lock) is
   the quickest way to know a test is worth something.
-- **Look at the real system.** Three of the eight problems above (encoding, translation,
+- **The textbook answer is a hypothesis.** Hybrid search is what everyone recommends for
+  exact names; on this corpus it made retrieval worse, and a two-line change did better.
+  Only the measurement could tell, and only reading the misses could explain why.
+- **Look at the real system.** Three of the nine problems above (encoding, translation,
   misleading bars) passed every test and were obvious within minutes of using the real
   application.
 - **Report numbers honestly.** A saturated evaluation, a cost estimate that was wrong by a

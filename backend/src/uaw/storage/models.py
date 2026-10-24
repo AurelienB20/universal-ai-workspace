@@ -27,7 +27,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 # voyage-code-3 default output size. Changing it requires a migration and re-embedding.
@@ -118,6 +118,8 @@ class ChunkRow(Base):
             postgresql_using="hnsw",
             postgresql_ops={"embedding": "vector_cosine_ops"},
         ),
+        # Full-text search (the `@@` operator), see storage/fulltext.py.
+        Index("ix_chunks_search_vector", "search_vector", postgresql_using="gin"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
@@ -131,6 +133,9 @@ class ChunkRow(Base):
     content: Mapped[str] = mapped_column(Text)
     # NULL until the ingestion pipeline computes it.
     embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIMENSIONS))
+    # Words of the path, section and content, for full-text search. Computed when the
+    # snapshot becomes ready (it needs the document's path).
+    search_vector: Mapped[str | None] = mapped_column(TSVECTOR)
 
 
 class IngestionJobRow(Base):
