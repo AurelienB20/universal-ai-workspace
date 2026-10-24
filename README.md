@@ -25,6 +25,10 @@ The app also has a **How it is built** page: each pipeline step, the choice made
 alternatives ruled out, an architecture diagram with its trust zones, and eight
 architecture decisions with their trade-offs, each linked to the code.
 
+**Read more:** [case study](docs/case-study.md) (the problem, the decisions, what went
+wrong and what changed) · [architecture decision records](docs/adr/README.md) ·
+[technical details](docs/technical-details.md)
+
 <p align="center">
   <img src="docs/images/how-it-is-built.jpg" alt="The How it is built page: the seven pipeline steps, the choice made at each one and the alternatives ruled out" width="49%">
   <img src="docs/images/demo-evidence.jpg" alt="The evidence panel: passages ranked by similarity, cited ones highlighted" width="49%">
