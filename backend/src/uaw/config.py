@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     # Claude Opus 5.5 always thinks: effort is the only depth control. Its API default
     # is "medium"; it is set explicitly so that a model change cannot alter it silently.
     llm_effort: Effort = "medium"
-    llm_max_tokens: int = Field(default=16_000, gt=0, le=64_000)
+    llm_max_tokens: int = Field(default=2_000, gt=0, le=64_000)
     llm_timeout_seconds: float = Field(default=120.0, gt=0, le=600)
     llm_max_retries: int = Field(default=2, ge=0, le=10)
     # On a safety refusal, the API retries the request on a model it picks for the

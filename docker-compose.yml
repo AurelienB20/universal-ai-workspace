@@ -1,5 +1,5 @@
 # Database only (default): docker compose up -d db
-# Database + API in containers: docker compose --profile app up -d --build
+# Database + API + web interface in containers: docker compose --profile app up -d --build
 # The credentials below are for local development only.
 services:
   db:
@@ -31,11 +31,29 @@ services:
       # Local containers: no reverse proxy, readable logs.
       APP_ENV: local
       LOG_FORMAT: text
+      # Trust X-Forwarded-For from the web container (local only: ports bound to
+      # 127.0.0.1), so that rate limits apply per browser, not to the web server.
+      FORWARDED_ALLOW_IPS: "*"
+      # Same source as the web container (the shell, or a .env file next to this
+      # one), so both always share the same key. Overrides API_KEY from backend/.env.
+      API_KEY: ${API_KEY:-}
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
     depends_on:
       db:
         condition: service_healthy
+
+  web:
+    profiles: ["app"]
+    build: ./frontend
+    environment:
+      API_URL: http://api:8000
+      # Same value as the api container's API_KEY (see above).
+      API_KEY: ${API_KEY:-}
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+    depends_on:
+      - api
 
 volumes:
   pgdata:

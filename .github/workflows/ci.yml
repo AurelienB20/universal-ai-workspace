@@ -1,4 +1,5 @@
-# Lint, type-check and test the backend, and check that its Docker image builds.
+# Lint, type-check and test the backend and the frontend, and check that their
+# Docker images build.
 # No API key is needed: tests against the real GitHub, Voyage and Anthropic APIs
 # (-m live) are not run here.
 name: CI
@@ -56,17 +57,44 @@ jobs:
       - name: Integration tests (PostgreSQL + pgvector)
         run: uv run pytest -m db
 
-  docker:
+  frontend:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Type-check
+        run: npm run typecheck
+      - name: Tests
+        run: npm test
+      - name: Build
+        run: npm run build
+
+  docker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        image: [backend, frontend]
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4
-      - name: Build the backend image (not pushed)
+      - name: Build the ${{ matrix.image }} image (not pushed)
         uses: docker/build-push-action@v7
         with:
-          context: backend
+          context: ${{ matrix.image }}
           push: false
-          tags: uaw-backend:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: uaw-${{ matrix.image }}:ci
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,scope=${{ matrix.image }},mode=max

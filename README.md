@@ -135,14 +135,13 @@ This project is built incrementally. Only what is listed under *Implemented* wor
   - Continuous integration (GitHub Actions): lint, strict typing, unit tests,
     integration tests on PostgreSQL + pgvector, and a build of the production image
     (multi-stage, non-root, locked dependencies).
+- Web interface (`frontend/`, Next.js + TypeScript + Tailwind), French by default with
+  an English switch: import a repository with live progress, then ask questions;
+  answers render as Markdown with `[S1]` markers linked to the cited lines on GitHub.
+  The browser only talks to the Next.js server, which forwards to FastAPI with the API
+  key: the key never reaches the browser (see `frontend/README.md`).
 
-### Planned (MVP 1)
-
-| Milestone | Scope |
-|---|---|
-| 1.9 | Minimal Next.js interface |
-
-Later milestones add hybrid retrieval, reranking and evaluation, then more data sources
+MVP 1 is complete. Later milestones add hybrid retrieval, reranking and evaluation, then more data sources
 (PostgreSQL, PDF), LangGraph orchestration, MCP tools and production infrastructure.
 
 ## Key design decision: the LLM never writes citations
@@ -176,6 +175,19 @@ uv run alembic upgrade head  # create or update the database schema
 uv run uvicorn uaw.main:create_app --factory --reload
 # http://127.0.0.1:8000/health   http://127.0.0.1:8000/docs
 ```
+
+### Run the web interface
+
+Needs Node.js 22. With the API running:
+
+```bash
+cd frontend
+cp .env.example .env.local   # API_URL, and API_KEY if the backend has one
+npm install
+npm run dev                  # http://localhost:3000
+```
+
+### Use the API directly
 
 When `API_KEY` is set, add `-H "X-API-Key: <key>"` to the requests below.
 
@@ -233,9 +245,14 @@ non-root user). It needs `DATABASE_URL`, `API_KEY`, `VOYAGE_API_KEY` and
 docker run --rm --env-file backend/.env uaw-backend alembic upgrade head
 ```
 
-Behind a reverse proxy, set `FORWARDED_ALLOW_IPS` to the proxy's address so that rate
-limits apply to the real client address. Rate limits are counted in memory: run a
-single API process, or move them to a shared store first.
+`frontend/Dockerfile` builds the web interface (Next.js standalone server, non-root).
+It needs `API_URL` (the backend, as seen from that container) and `API_KEY`.
+
+Expected topology: a reverse proxy (TLS) in front of the web interface only; the API
+is reachable by the web container, not from the internet. Set the API's
+`FORWARDED_ALLOW_IPS` to the web container's address so that rate limits apply to the
+real client address, and make the reverse proxy set `X-Forwarded-For`. Rate limits are
+counted in memory: run a single API process, or move them to a shared store first.
 
 ## Project layout
 
@@ -264,7 +281,8 @@ backend/
     integration/         # tests against PostgreSQL (opt-in: -m db)
     live/                # opt-in tests against real services (incl. prompt injection)
   Dockerfile             # production image
+frontend/                # Next.js web interface (see frontend/README.md)
 .github/workflows/ci.yml # continuous integration
-docker-compose.yml       # PostgreSQL + pgvector (and the API, profile "app")
+docker-compose.yml       # PostgreSQL + pgvector (and API + web, profile "app")
 scripts/                 # PostgreSQL + pgvector in WSL, without Docker
 ```

@@ -16,7 +16,15 @@ et les Dockerfiles.
   - Démarrer : `wsl -d Debian -u root -- service postgresql start`
   - Arrêter : `wsl -d Debian -u root -- service postgresql stop`
 - Avant de démarrer, vérifier s'il tourne déjà (`... service postgresql status`). À la fin,
-  arrêter seulement ce qui a été démarré pour l'occasion (PostgreSQL, serveur uvicorn).
+  arrêter seulement ce qui a été démarré pour l'occasion (PostgreSQL, serveur uvicorn,
+  `next dev`).
+- Frontend (`frontend/`, Next.js 16) : `npm run lint`, `npm run typecheck`, `npm test` et
+  `npm run build` tournent sans backend. `npm run dev` (~300-500 Mo) seulement pour un essai
+  réel, puis l'arrêter. Lire `frontend/AGENTS.md` : cette version de Next.js diffère de ce
+  que l'on connaît, sa documentation est dans `frontend/node_modules/next/dist/docs/`.
+- Le CI GitHub Actions (`.github/workflows/ci.yml`) teste tout et construit les images
+  Docker : c'est lui qui vérifie les Dockerfiles, pas le PC local. `gh` est installé dans
+  `C:\Program Files\GitHub CLI\gh.exe` (absent du PATH de Git Bash).
 - Ne jamais supprimer de données : pas de `DROP DATABASE`, ni de `docker compose down -v`,
   `docker volume rm`, `docker system prune --volumes`.
 - Ne pas faire `wsl --shutdown` : la distribution Debian peut servir à autre chose.
