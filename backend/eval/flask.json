@@ -1,0 +1,330 @@
+{
+  "repository": "pallets/flask",
+  "commit_sha": "d086db856be187255b8ec61ef409357393020f32",
+  "description": "Questions about Flask (216 indexed files: source, documentation, examples, tests), labeled with the line ranges that answer them. Categories show where retrieval fails; dev questions may be looked at while tuning, test questions only to report.",
+  "questions": [
+    {
+      "id": "flask-url-for",
+      "question": "How does url_for generate the URL of an endpoint?",
+      "category": "lookup",
+      "split": "dev",
+      "evidence": [
+        { "path": "src/flask/app.py", "start_line": 1102, "end_line": 1222 },
+        { "path": "src/flask/helpers.py", "start_line": 200, "end_line": 251 }
+      ]
+    },
+    {
+      "id": "flask-session-signing",
+      "question": "How does the default session interface sign the session cookie?",
+      "category": "lookup",
+      "split": "test",
+      "evidence": [{ "path": "src/flask/sessions.py", "start_line": 303, "end_line": 321 }]
+    },
+    {
+      "id": "flask-config-from-envvar",
+      "question": "How can I load configuration from a file whose path is given in an environment variable?",
+      "category": "lookup",
+      "split": "dev",
+      "evidence": [{ "path": "src/flask/config.py", "start_line": 102, "end_line": 124 }]
+    },
+    {
+      "id": "flask-test-client-session",
+      "question": "How can the test client modify the session before sending a request?",
+      "category": "lookup",
+      "split": "test",
+      "evidence": [
+        { "path": "src/flask/testing.py", "start_line": 136, "end_line": 183 },
+        { "path": "docs/testing.rst", "start_line": 202, "end_line": 243 }
+      ]
+    },
+    {
+      "id": "flask-preprocess-request",
+      "question": "How are the before_request functions run before the view function?",
+      "category": "lookup",
+      "split": "dev",
+      "evidence": [{ "path": "src/flask/app.py", "start_line": 1366, "end_line": 1392 }]
+    },
+    {
+      "id": "flask-render-template",
+      "question": "How does render_template render a template with a context?",
+      "category": "lookup",
+      "split": "test",
+      "evidence": [{ "path": "src/flask/templating.py", "start_line": 123, "end_line": 148 }]
+    },
+    {
+      "id": "flask-errorhandler-registration",
+      "question": "How are error handlers registered for an exception class or an HTTP status code?",
+      "category": "lookup",
+      "split": "dev",
+      "evidence": [{ "path": "src/flask/sansio/scaffold.py", "start_line": 606, "end_line": 647 }]
+    },
+    {
+      "id": "flask-make-response",
+      "question": "Which return values from a view can make_response turn into a response object?",
+      "category": "lookup",
+      "split": "test",
+      "evidence": [{ "path": "src/flask/app.py", "start_line": 1224, "end_line": 1364 }]
+    },
+    {
+      "id": "flask-request-scoped-storage",
+      "question": "How can I keep a value around for the duration of a single request only?",
+      "category": "paraphrase",
+      "split": "dev",
+      "evidence": [{ "path": "src/flask/ctx.py", "start_line": 30, "end_line": 115 }]
+    },
+    {
+      "id": "flask-group-views-prefix",
+      "question": "How do I group related views into a reusable component and mount them all under a common path prefix?",
+      "category": "paraphrase",
+      "split": "test",
+      "evidence": [
+        { "path": "docs/blueprints.rst", "start_line": 84, "end_line": 121 },
+        { "path": "src/flask/sansio/blueprints.py", "start_line": 34, "end_line": 116 }
+      ]
+    },
+    {
+      "id": "flask-stop-with-error-status",
+      "question": "How do I stop handling a request immediately and send back an HTTP error status?",
+      "category": "paraphrase",
+      "split": "dev",
+      "evidence": [{ "path": "src/flask/helpers.py", "start_line": 281, "end_line": 301 }]
+    },
+    {
+      "id": "flask-modify-outgoing-response",
+      "question": "How can I run some code once the response has been built, to change it before it is sent?",
+      "category": "paraphrase",
+      "split": "test",
+      "evidence": [
+        { "path": "src/flask/sansio/scaffold.py", "start_line": 495, "end_line": 513 },
+        { "path": "src/flask/app.py", "start_line": 1394, "end_line": 1418 }
+      ]
+    },
+    {
+      "id": "flask-unsafe-upload-names",
+      "question": "How do I stop a user from writing files outside my folder by choosing a crafted name when sending a file?",
+      "category": "paraphrase",
+      "split": "dev",
+      "evidence": [{ "path": "docs/patterns/fileuploads.rst", "start_line": 14, "end_line": 126 }]
+    },
+    {
+      "id": "flask-limit-upload-size",
+      "question": "How do I refuse requests whose body is too big, for example huge uploads?",
+      "category": "paraphrase",
+      "split": "test",
+      "evidence": [
+        { "path": "docs/config.rst", "start_line": 320, "end_line": 337 },
+        { "path": "docs/patterns/fileuploads.rst", "start_line": 128, "end_line": 159 }
+      ]
+    },
+    {
+      "id": "flask-one-time-notification",
+      "question": "How can I show the user a one-time notification on the next page they visit?",
+      "category": "paraphrase",
+      "split": "dev",
+      "evidence": [
+        { "path": "src/flask/helpers.py", "start_line": 326, "end_line": 357 },
+        { "path": "docs/patterns/flashing.rst", "start_line": 14, "end_line": 89 }
+      ]
+    },
+    {
+      "id": "flask-several-app-instances",
+      "question": "How should I organise my code to build several instances of my application with different settings, for example one per test?",
+      "category": "paraphrase",
+      "split": "test",
+      "evidence": [{ "path": "docs/patterns/appfactories.rst", "start_line": 22, "end_line": 53 }]
+    },
+    {
+      "id": "flask-session-cookie-samesite",
+      "question": "What does SESSION_COOKIE_SAMESITE control?",
+      "category": "identifier",
+      "split": "dev",
+      "evidence": [
+        { "path": "docs/config.rst", "start_line": 212, "end_line": 221 },
+        { "path": "src/flask/sessions.py", "start_line": 208, "end_line": 213 }
+      ]
+    },
+    {
+      "id": "flask-secret-key-fallbacks",
+      "question": "What is SECRET_KEY_FALLBACKS used for?",
+      "category": "identifier",
+      "split": "test",
+      "evidence": [
+        { "path": "docs/config.rst", "start_line": 128, "end_line": 146 },
+        { "path": "src/flask/sessions.py", "start_line": 303, "end_line": 321 }
+      ]
+    },
+    {
+      "id": "flask-stream-with-context",
+      "question": "What does stream_with_context do?",
+      "category": "identifier",
+      "split": "dev",
+      "evidence": [{ "path": "src/flask/helpers.py", "start_line": 63, "end_line": 148 }]
+    },
+    {
+      "id": "flask-scriptinfo",
+      "question": "What is ScriptInfo in the Flask command line interface?",
+      "category": "identifier",
+      "split": "test",
+      "evidence": [{ "path": "src/flask/cli.py", "start_line": 293, "end_line": 372 }]
+    },
+    {
+      "id": "flask-after-this-request",
+      "question": "What does after_this_request do?",
+      "category": "identifier",
+      "split": "dev",
+      "evidence": [{ "path": "src/flask/ctx.py", "start_line": 118, "end_line": 148 }]
+    },
+    {
+      "id": "flask-propagate-exceptions",
+      "question": "What does PROPAGATE_EXCEPTIONS change?",
+      "category": "identifier",
+      "split": "test",
+      "evidence": [
+        { "path": "docs/config.rst", "start_line": 88, "end_line": 95 },
+        { "path": "src/flask/app.py", "start_line": 897, "end_line": 948 }
+      ]
+    },
+    {
+      "id": "flask-from-prefixed-env",
+      "question": "What does Config.from_prefixed_env load?",
+      "category": "identifier",
+      "split": "dev",
+      "evidence": [
+        { "path": "src/flask/config.py", "start_line": 126, "end_line": 185 },
+        { "path": "docs/config.rst", "start_line": 542, "end_line": 632 }
+      ]
+    },
+    {
+      "id": "flask-send-file-argument",
+      "question": "What can be passed as the first argument of send_file?",
+      "category": "identifier",
+      "split": "test",
+      "evidence": [{ "path": "src/flask/helpers.py", "start_line": 417, "end_line": 540 }]
+    },
+    {
+      "id": "flask-jsonify-and-provider",
+      "question": "How does jsonify turn data into a response, and how can the JSON encoding be customized?",
+      "category": "multi-file",
+      "split": "dev",
+      "evidence": [
+        { "path": "src/flask/json/__init__.py", "start_line": 138, "end_line": 170 },
+        { "path": "src/flask/json/provider.py", "start_line": 124, "end_line": 215 }
+      ]
+    },
+    {
+      "id": "flask-context-push-and-teardown",
+      "question": "How is the context pushed for a request, and how do teardown functions run when it is popped?",
+      "category": "multi-file",
+      "split": "test",
+      "evidence": [
+        { "path": "src/flask/ctx.py", "start_line": 416, "end_line": 444 },
+        { "path": "src/flask/ctx.py", "start_line": 446, "end_line": 504 },
+        { "path": "src/flask/app.py", "start_line": 1420, "end_line": 1451 }
+      ]
+    },
+    {
+      "id": "flask-blueprint-registration",
+      "question": "How does registering a blueprint add its routes to the application?",
+      "category": "multi-file",
+      "split": "dev",
+      "evidence": [
+        { "path": "src/flask/sansio/app.py", "start_line": 571, "end_line": 596 },
+        { "path": "src/flask/sansio/blueprints.py", "start_line": 273, "end_line": 377 }
+      ]
+    },
+    {
+      "id": "flask-run-finds-app",
+      "question": "How does the flask command find the application to serve?",
+      "category": "multi-file",
+      "split": "test",
+      "evidence": [
+        { "path": "src/flask/cli.py", "start_line": 41, "end_line": 91 },
+        { "path": "src/flask/cli.py", "start_line": 241, "end_line": 264 },
+        { "path": "docs/cli.rst", "start_line": 14, "end_line": 66 }
+      ]
+    },
+    {
+      "id": "flask-flash-to-template",
+      "question": "How do flashed messages travel from a view to the template that displays them?",
+      "category": "multi-file",
+      "split": "dev",
+      "evidence": [
+        { "path": "src/flask/helpers.py", "start_line": 326, "end_line": 357 },
+        { "path": "src/flask/helpers.py", "start_line": 360, "end_line": 399 },
+        { "path": "docs/patterns/flashing.rst", "start_line": 14, "end_line": 89 }
+      ]
+    },
+    {
+      "id": "flask-fr-session-tampering",
+      "question": "Comment le cookie de session est-il protégé contre la falsification ?",
+      "category": "cross-lingual",
+      "split": "dev",
+      "evidence": [{ "path": "src/flask/sessions.py", "start_line": 303, "end_line": 321 }]
+    },
+    {
+      "id": "flask-fr-before-each-request",
+      "question": "Comment exécuter du code avant chaque requête ?",
+      "category": "cross-lingual",
+      "split": "test",
+      "evidence": [
+        { "path": "src/flask/sansio/scaffold.py", "start_line": 468, "end_line": 492 },
+        { "path": "src/flask/app.py", "start_line": 1366, "end_line": 1392 }
+      ]
+    },
+    {
+      "id": "flask-fr-test-without-server",
+      "question": "Comment tester une application Flask sans lancer de serveur ?",
+      "category": "cross-lingual",
+      "split": "dev",
+      "evidence": [
+        { "path": "docs/testing.rst", "start_line": 83, "end_line": 118 },
+        { "path": "src/flask/testing.py", "start_line": 109, "end_line": 262 }
+      ]
+    },
+    {
+      "id": "flask-fr-default-config",
+      "question": "Où sont définies les valeurs de configuration par défaut ?",
+      "category": "cross-lingual",
+      "split": "test",
+      "evidence": [{ "path": "src/flask/app.py", "start_line": 206, "end_line": 236 }]
+    },
+    {
+      "id": "flask-fr-custom-404",
+      "question": "Comment afficher une page d'erreur personnalisée pour une erreur 404 ?",
+      "category": "cross-lingual",
+      "split": "dev",
+      "evidence": [{ "path": "docs/errorhandling.rst", "start_line": 258, "end_line": 331 }]
+    },
+    {
+      "id": "flask-fr-websockets",
+      "question": "Flask permet-il de gérer des websockets ?",
+      "category": "cross-lingual",
+      "split": "test",
+      "evidence": [{ "path": "docs/async-await.rst", "start_line": 65, "end_line": 84 }]
+    },
+    {
+      "id": "flask-no-rate-limit",
+      "question": "How do I apply a rate limit to a route with Flask's built-in rate limiter?",
+      "category": "unanswerable",
+      "split": "dev"
+    },
+    {
+      "id": "flask-no-migrations",
+      "question": "How do I generate database migrations with Alembic using Flask's migrate command?",
+      "category": "unanswerable",
+      "split": "test"
+    },
+    {
+      "id": "flask-no-oauth",
+      "question": "How do I add Google OAuth login with Flask's built-in OAuth support?",
+      "category": "unanswerable",
+      "split": "dev"
+    },
+    {
+      "id": "flask-no-grpc",
+      "question": "How do I expose a gRPC service from a Flask application?",
+      "category": "unanswerable",
+      "split": "test"
+    }
+  ]
+}

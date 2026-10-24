@@ -1,107 +1,228 @@
 {
   "repository": "pallets/itsdangerous",
   "commit_sha": "672971d66a2ef9f85151e53283113f33d642dabd",
-  "description": "Developer questions about itsdangerous. relevant_paths lists every indexed file that contains (part of) the answer. Questions q18-q20 are in French, to check cross-lingual retrieval.",
+  "description": "Questions about itsdangerous (41 indexed files), labeled with the line ranges that answer them. q01-q20 are the first set, relabeled from whole files to line ranges; q21-q26 add paraphrases, identifiers and questions without an answer. Dev questions may be looked at while tuning, test questions only to report.",
   "questions": [
     {
       "id": "q01-constant-time",
       "question": "How is the signature compared to protect against timing attacks?",
-      "relevant_paths": ["src/itsdangerous/signer.py"]
+      "category": "lookup",
+      "split": "dev",
+      "evidence": [{ "path": "src/itsdangerous/signer.py", "start_line": 24, "end_line": 28 }]
     },
     {
       "id": "q02-default-digest",
       "question": "Which hash function is used by default for HMAC signatures?",
-      "relevant_paths": ["src/itsdangerous/signer.py", "docs/concepts.rst"]
+      "category": "lookup",
+      "split": "test",
+      "evidence": [
+        { "path": "src/itsdangerous/signer.py", "start_line": 48, "end_line": 64 },
+        { "path": "docs/concepts.rst", "start_line": 137, "end_line": 155 }
+      ]
     },
     {
       "id": "q03-token-expiry",
       "question": "How can I make a token expire after a given number of seconds?",
-      "relevant_paths": ["src/itsdangerous/timed.py", "docs/timed.rst"]
+      "category": "lookup",
+      "split": "dev",
+      "evidence": [
+        { "path": "src/itsdangerous/timed.py", "start_line": 72, "end_line": 158 },
+        { "path": "docs/timed.rst", "start_line": 3, "end_line": 29 }
+      ]
     },
     {
       "id": "q04-expired-exception",
       "question": "Which exception is raised when a signed value is too old?",
-      "relevant_paths": ["src/itsdangerous/exc.py", "src/itsdangerous/timed.py"]
+      "category": "lookup",
+      "split": "test",
+      "evidence": [
+        { "path": "src/itsdangerous/exc.py", "start_line": 60, "end_line": 63 },
+        { "path": "src/itsdangerous/timed.py", "start_line": 72, "end_line": 158 }
+      ]
     },
     {
       "id": "q05-key-rotation",
       "question": "How do I rotate secret keys without invalidating tokens signed with an older key?",
-      "relevant_paths": ["docs/concepts.rst", "src/itsdangerous/signer.py"]
+      "category": "lookup",
+      "split": "dev",
+      "evidence": [
+        { "path": "docs/concepts.rst", "start_line": 101, "end_line": 135 },
+        { "path": "src/itsdangerous/signer.py", "start_line": 227, "end_line": 242 }
+      ]
     },
     {
       "id": "q06-url-compression",
       "question": "How is the payload compressed to make URL-safe tokens shorter?",
-      "relevant_paths": ["src/itsdangerous/url_safe.py"]
+      "category": "lookup",
+      "split": "test",
+      "evidence": [{ "path": "src/itsdangerous/url_safe.py", "start_line": 55, "end_line": 69 }]
     },
     {
       "id": "q07-base64-padding",
       "question": "How is missing base64 padding handled when decoding?",
-      "relevant_paths": ["src/itsdangerous/encoding.py"]
+      "category": "lookup",
+      "split": "dev",
+      "evidence": [{ "path": "src/itsdangerous/encoding.py", "start_line": 28, "end_line": 38 }]
     },
     {
       "id": "q08-key-derivation",
       "question": "Which key derivation methods are supported and how do they combine the salt and the secret key?",
-      "relevant_paths": ["src/itsdangerous/signer.py"]
+      "category": "lookup",
+      "split": "test",
+      "evidence": [{ "path": "src/itsdangerous/signer.py", "start_line": 182, "end_line": 213 }]
     },
     {
       "id": "q09-upgrade-digest",
       "question": "How can I switch to SHA-512 signatures while still accepting old SHA-1 tokens?",
-      "relevant_paths": ["docs/serializer.rst", "docs/concepts.rst", "src/itsdangerous/serializer.py"]
+      "category": "multi-file",
+      "split": "dev",
+      "evidence": [
+        { "path": "docs/serializer.rst", "start_line": 77, "end_line": 106 },
+        { "path": "docs/concepts.rst", "start_line": 137, "end_line": 155 },
+        { "path": "src/itsdangerous/serializer.py", "start_line": 287, "end_line": 307 }
+      ]
     },
     {
       "id": "q10-loads-unsafe",
       "question": "How can I read a payload even if its signature is invalid, for debugging?",
-      "relevant_paths": ["src/itsdangerous/serializer.py", "docs/serializer.rst"]
+      "category": "lookup",
+      "split": "test",
+      "evidence": [
+        { "path": "src/itsdangerous/serializer.py", "start_line": 349, "end_line": 395 },
+        { "path": "docs/serializer.rst", "start_line": 36, "end_line": 75 }
+      ]
     },
     {
       "id": "q11-salt",
       "question": "What is the salt for, and why use different salts for different kinds of tokens?",
-      "relevant_paths": ["docs/concepts.rst"]
+      "category": "lookup",
+      "split": "dev",
+      "evidence": [{ "path": "docs/concepts.rst", "start_line": 56, "end_line": 99 }]
     },
     {
       "id": "q12-timestamp-encoding",
       "question": "How is the timestamp encoded inside a timestamp-signed value?",
-      "relevant_paths": ["src/itsdangerous/timed.py", "src/itsdangerous/encoding.py"]
+      "category": "multi-file",
+      "split": "test",
+      "evidence": [
+        { "path": "src/itsdangerous/timed.py", "start_line": 45, "end_line": 51 },
+        { "path": "src/itsdangerous/encoding.py", "start_line": 20, "end_line": 25 },
+        { "path": "src/itsdangerous/encoding.py", "start_line": 49, "end_line": 50 }
+      ]
     },
     {
       "id": "q13-none-algorithm",
       "question": "Is there a signing algorithm that produces an empty signature?",
-      "relevant_paths": ["src/itsdangerous/signer.py"]
+      "category": "paraphrase",
+      "split": "dev",
+      "evidence": [{ "path": "src/itsdangerous/signer.py", "start_line": 31, "end_line": 37 }]
     },
     {
       "id": "q14-compact-json",
       "question": "Where is the JSON serializer that produces compact output without spaces?",
-      "relevant_paths": ["src/itsdangerous/_json.py"]
+      "category": "lookup",
+      "split": "test",
+      "evidence": [{ "path": "src/itsdangerous/_json.py", "start_line": 7, "end_line": 18 }]
     },
     {
       "id": "q15-expiry-tests",
       "question": "Where are the tests checking that expired signatures are rejected?",
-      "relevant_paths": ["tests/test_itsdangerous/test_timed.py"]
+      "category": "lookup",
+      "split": "dev",
+      "evidence": [
+        { "path": "tests/test_itsdangerous/test_timed.py", "start_line": 34, "end_line": 43 },
+        { "path": "tests/test_itsdangerous/test_timed.py", "start_line": 101, "end_line": 111 }
+      ]
     },
     {
       "id": "q16-quickstart",
       "question": "Show a simple example of creating a token for a user id and loading it back.",
-      "relevant_paths": ["README.md", "docs/serializer.rst"]
+      "category": "multi-file",
+      "split": "test",
+      "evidence": [
+        { "path": "README.md", "start_line": 16, "end_line": 32 },
+        { "path": "docs/serializer.rst", "start_line": 3, "end_line": 34 }
+      ]
     },
     {
       "id": "q17-changelog",
       "question": "Which Python versions were dropped in the latest release notes?",
-      "relevant_paths": ["CHANGES.rst"]
+      "category": "lookup",
+      "split": "dev",
+      "evidence": [{ "path": "CHANGES.rst", "start_line": 1, "end_line": 8 }]
     },
     {
       "id": "q18-fr-validate",
       "question": "Comment vérifier qu'une valeur signée est valide sans lever d'exception ?",
-      "relevant_paths": ["src/itsdangerous/signer.py", "src/itsdangerous/timed.py"]
+      "category": "cross-lingual",
+      "split": "test",
+      "evidence": [
+        { "path": "src/itsdangerous/signer.py", "start_line": 258, "end_line": 266 },
+        { "path": "src/itsdangerous/timed.py", "start_line": 160, "end_line": 167 }
+      ]
     },
     {
       "id": "q19-fr-bad-payload",
       "question": "Quelle erreur est levée quand le contenu signé ne peut pas être désérialisé ?",
-      "relevant_paths": ["src/itsdangerous/exc.py", "src/itsdangerous/serializer.py"]
+      "category": "cross-lingual",
+      "split": "dev",
+      "evidence": [
+        { "path": "src/itsdangerous/exc.py", "start_line": 92, "end_line": 106 },
+        { "path": "src/itsdangerous/serializer.py", "start_line": 243, "end_line": 269 }
+      ]
     },
     {
       "id": "q20-fr-generate-key",
       "question": "Comment générer une bonne clé secrète et où la stocker ?",
-      "relevant_paths": ["docs/concepts.rst"]
+      "category": "cross-lingual",
+      "split": "test",
+      "evidence": [{ "path": "docs/concepts.rst", "start_line": 18, "end_line": 54 }]
+    },
+    {
+      "id": "q21-tampered-link",
+      "question": "How can I tell whether a link I sent by email was changed on the way?",
+      "category": "paraphrase",
+      "split": "test",
+      "evidence": [
+        { "path": "src/itsdangerous/signer.py", "start_line": 244, "end_line": 256 },
+        { "path": "src/itsdangerous/signer.py", "start_line": 227, "end_line": 242 }
+      ]
+    },
+    {
+      "id": "q22-link-valid-one-day",
+      "question": "How do I make a link that stops working after one day?",
+      "category": "paraphrase",
+      "split": "dev",
+      "evidence": [
+        { "path": "src/itsdangerous/timed.py", "start_line": 185, "end_line": 220 },
+        { "path": "docs/timed.rst", "start_line": 3, "end_line": 29 }
+      ]
+    },
+    {
+      "id": "q23-url-safe-timed-serializer",
+      "question": "What does URLSafeTimedSerializer combine?",
+      "category": "identifier",
+      "split": "test",
+      "evidence": [{ "path": "src/itsdangerous/url_safe.py", "start_line": 79, "end_line": 83 }]
+    },
+    {
+      "id": "q24-bad-time-signature-date",
+      "question": "What is the date_signed attribute of BadTimeSignature?",
+      "category": "identifier",
+      "split": "dev",
+      "evidence": [{ "path": "src/itsdangerous/exc.py", "start_line": 36, "end_line": 57 }]
+    },
+    {
+      "id": "q25-no-encryption",
+      "question": "How do I encrypt the payload so that nobody can read its content?",
+      "category": "unanswerable",
+      "split": "test"
+    },
+    {
+      "id": "q26-no-rsa",
+      "question": "How do I sign tokens with an RSA private key and verify them with the public key?",
+      "category": "unanswerable",
+      "split": "dev"
     }
   ]
 }
