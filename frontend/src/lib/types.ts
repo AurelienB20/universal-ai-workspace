@@ -37,3 +37,32 @@ export interface Answer {
   citations: Citation[];
   model: string | null;
 }
+
+// backend/src/uaw/storage/repositories.py
+export interface RepositorySummary {
+  repository: string; // "Owner/Name"
+  default_branch: string;
+  commit_sha: string;
+  indexed_at: string;
+  documents_count: number;
+  chunks_count: number;
+}
+
+// backend/src/uaw/storage/cached_answers.py and api/repositories.py
+export interface CachedAnswer {
+  question: string;
+  answer: Answer;
+  generated_at: string;
+}
+
+export interface Suggestions {
+  repository: string;
+  commit_sha: string;
+  language: "fr" | "en";
+  items: CachedAnswer[];
+}
+
+// app/api/config/route.ts
+export interface InterfaceConfig {
+  importsEnabled: boolean;
+}

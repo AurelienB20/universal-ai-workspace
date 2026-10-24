@@ -9,7 +9,13 @@ import type { Answer, Citation } from "@/lib/types";
 
 const CITATION_ID = /^S\d+$/;
 
-export function AnswerView({ answer }: { answer: Answer }) {
+interface Props {
+  answer: Answer;
+  /** When the answer comes from the cache: its generation date (ISO 8601). */
+  cachedAt?: string;
+}
+
+export function AnswerView({ answer, cachedAt }: Props) {
   const { t } = useLanguage();
   const byId = new Map(answer.citations.map((citation) => [citation.id, citation]));
 
@@ -32,6 +38,14 @@ export function AnswerView({ answer }: { answer: Answer }) {
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Said plainly: a visitor must know this answer was not written just now. */}
+      {cachedAt && (
+        <p className="w-fit rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-medium text-sky-800 dark:bg-sky-950/60 dark:text-sky-300">
+          {t.cachedAnswer(
+            new Intl.DateTimeFormat(t.dateLocale, { dateStyle: "long" }).format(new Date(cachedAt)),
+          )}
+        </p>
+      )}
       {answer.insufficient_context && <p className="notice">{t.insufficientContext}</p>}
 
       <div className="markdown">

@@ -85,3 +85,28 @@ export async function forward(
   }
   return new Response(await response.text(), { status: response.status, headers: passed });
 }
+
+/**
+ * Whether this interface offers imports. Set IMPORTS_ENABLED=false on a public demo,
+ * whose server holds the backend's demo key: the backend would refuse imports anyway
+ * (403), so the panel and the proxy routes are removed rather than left failing.
+ */
+export function importsEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env.IMPORTS_ENABLED?.trim().toLowerCase() !== "false";
+}
+
+export function notFound(): Response {
+  return jsonError(404, "Not found.");
+}
+
+// Same rules as the backend (uaw.connectors.github.url): nothing else can reach the path.
+const OWNER = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/;
+const REPO = /^[A-Za-z0-9._-]{1,100}$/;
+const LANGUAGES = new Set(["fr", "en"]);
+
+/** The backend path of a repository's suggestions, or null if a part is invalid. */
+export function suggestionsPath(owner: string, name: string, language: string | null): string | null {
+  if (!OWNER.test(owner) || !REPO.test(name) || name === "." || name === "..") return null;
+  if (language === null || !LANGUAGES.has(language)) return null;
+  return `/repositories/${owner}/${name}/suggestions?language=${language}`;
+}

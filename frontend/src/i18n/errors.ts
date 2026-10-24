@@ -10,6 +10,8 @@ export function errorMessage(error: unknown, t: Messages, action: "import" | "as
       return t.errors.network;
     case 401:
       return t.errors.unauthorized;
+    case 403:
+      return t.errors.forbidden;
     case 404:
       return t.errors.notIndexed;
     case 409:
@@ -25,7 +27,10 @@ export function errorMessage(error: unknown, t: Messages, action: "import" | "as
     case 502:
       return t.errors.backendDown;
     case 503:
-      return t.errors.unavailable;
+      // With Retry-After: every answer slot is taken, it frees up within seconds.
+      return error.retryAfterSeconds === null
+        ? t.errors.unavailable
+        : t.errors.busy(t.duration(error.retryAfterSeconds));
     default:
       return t.errors.unexpected(error.status);
   }

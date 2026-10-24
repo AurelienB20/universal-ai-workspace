@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { type BackendConfig, MAX_BODY_BYTES, clientAddress, forward } from "./backend";
+import {
+  type BackendConfig,
+  MAX_BODY_BYTES,
+  clientAddress,
+  forward,
+  importsEnabled,
+  suggestionsPath,
+} from "./backend";
 
 const CONFIG: BackendConfig = { url: "http://backend:8000", apiKey: "server-key" };
 
@@ -91,5 +98,32 @@ describe("clientAddress", () => {
 
   it("is undefined without the header", () => {
     expect(clientAddress(new Headers())).toBeUndefined();
+  });
+});
+
+describe("importsEnabled", () => {
+  it("is on unless explicitly disabled", () => {
+    expect(importsEnabled({})).toBe(true);
+    expect(importsEnabled({ IMPORTS_ENABLED: "true" })).toBe(true);
+    expect(importsEnabled({ IMPORTS_ENABLED: " FALSE " })).toBe(false);
+  });
+});
+
+describe("suggestionsPath", () => {
+  it("builds the backend path for a valid repository and language", () => {
+    expect(suggestionsPath("pallets", "its.dangerous", "fr")).toBe(
+      "/repositories/pallets/its.dangerous/suggestions?language=fr",
+    );
+  });
+
+  it.each([
+    ["-bad", "repo", "fr"],
+    ["owner", "..", "fr"],
+    ["owner", "a/b", "en"],
+    ["owner", "repo?x=1", "en"],
+    ["owner", "repo", "de"],
+    ["owner", "repo", null],
+  ])("rejects %s/%s in %s", (owner, name, language) => {
+    expect(suggestionsPath(owner, name, language)).toBeNull();
   });
 });

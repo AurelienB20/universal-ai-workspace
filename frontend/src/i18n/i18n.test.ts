@@ -42,6 +42,21 @@ describe("errorMessage", () => {
     expect(errorMessage(error, messages.en, "ask")).toBe("The question could not be processed.");
   });
 
+  it("tells a demo visitor that an action is not available", () => {
+    expect(errorMessage(new ApiError(403, "no", null), messages.en, "import")).toBe(
+      "This action is not available on this demo.",
+    );
+  });
+
+  it("tells a busy server from an unavailable one", () => {
+    expect(errorMessage(new ApiError(503, "busy", 5), messages.fr, "ask")).toBe(
+      "Le serveur répond déjà à d'autres questions. Réessayez dans 5 s.",
+    );
+    expect(errorMessage(new ApiError(503, "down", null), messages.en, "ask")).toMatch(
+      /^Service unavailable/,
+    );
+  });
+
   it("covers network failures and unknown errors", () => {
     expect(errorMessage(new ApiError(0, null, null), messages.en, "ask")).toBe(
       "Cannot reach the interface server.",

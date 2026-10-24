@@ -1,7 +1,13 @@
 // Browser-side calls. They go to this app's Route Handlers (/api/...), which
 // forward them to the backend with the API key (see lib/backend.ts).
 
-import type { Answer, ImportJob } from "./types";
+import type {
+  Answer,
+  ImportJob,
+  InterfaceConfig,
+  RepositorySummary,
+  Suggestions,
+} from "./types";
 
 export class ApiError extends Error {
   constructor(
@@ -62,4 +68,19 @@ export function ask(repository: string, question: string): Promise<Answer> {
     method: "POST",
     body: JSON.stringify({ repository, question }),
   });
+}
+
+export function getConfig(): Promise<InterfaceConfig> {
+  return call<InterfaceConfig>("/api/config");
+}
+
+export function listRepositories(): Promise<RepositorySummary[]> {
+  return call<RepositorySummary[]>("/api/repositories");
+}
+
+export function getSuggestions(repository: string, language: string): Promise<Suggestions> {
+  const [owner, name] = repository.split("/").map(encodeURIComponent);
+  return call<Suggestions>(
+    `/api/repositories/${owner}/${name}/suggestions?language=${encodeURIComponent(language)}`,
+  );
 }

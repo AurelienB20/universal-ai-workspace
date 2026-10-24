@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { errorMessage } from "@/i18n/errors";
 import { useLanguage } from "@/i18n/language";
-import { ask } from "@/lib/api";
-import type { Answer } from "@/lib/types";
+import { ask, getSuggestions } from "@/lib/api";
+import type { Answer, CachedAnswer } from "@/lib/types";
 
 import { AnswerView } from "./AnswerView";
 
@@ -15,20 +15,46 @@ interface Exchange {
   id: number;
   question: string;
   answer?: Answer;
+  // Generation date of a cached answer (suggested question); absent when live.
+  cachedAt?: string;
   // The error, kept untranslated so that it follows a language change.
   error?: unknown;
 }
 
 export function AskPanel({ repository }: { repository: string }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [question, setQuestion] = useState("");
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [pending, setPending] = useState<Exchange | null>(null);
+  const [suggestions, setSuggestions] = useState<CachedAnswer[]>([]);
+  // Exchange keys: a suggestion can be shown several times.
+  const nextId = useRef(0);
+
+  // Suggestions are optional: any failure simply shows none.
+  useEffect(() => {
+    let cancelled = false;
+    getSuggestions(repository, language)
+      .then((result) => !cancelled && setSuggestions(result.items))
+      .catch(() => !cancelled && setSuggestions([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [repository, language]);
+
+  function showCached(item: CachedAnswer) {
+    const exchange: Exchange = {
+      id: nextId.current++,
+      question: item.question,
+      answer: item.answer,
+      cachedAt: item.generated_at,
+    };
+    setExchanges((previous) => [exchange, ...previous]);
+  }
 
   async function submit() {
     const text = question.trim();
     if (!text || pending) return;
-    const exchange: Exchange = { id: Date.now(), question: text };
+    const exchange: Exchange = { id: nextId.current++, question: text };
     setPending(exchange);
     let done: Exchange;
     try {
@@ -44,6 +70,26 @@ export function AskPanel({ repository }: { repository: string }) {
   return (
     <section className="card">
       <h2 className="card-title">{t.askHeading(repository)}</h2>
+
+      {suggestions.length > 0 && (
+        <div className="mb-4">
+          <p className="text-sm font-medium">{t.suggestionsHeading}</p>
+          <p className="mb-2 text-xs text-zinc-500">{t.suggestionsHint}</p>
+          <ul className="flex flex-wrap gap-2">
+            {suggestions.map((item) => (
+              <li key={item.question}>
+                <button
+                  type="button"
+                  onClick={() => showCached(item)}
+                  className="rounded-full border border-zinc-300 px-3 py-1 text-left text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                >
+                  {item.question}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <form
         onSubmit={(event) => {
@@ -85,7 +131,7 @@ export function AskPanel({ repository }: { repository: string }) {
           <article key={exchange.id} className="exchange">
             <p className="question">{exchange.question}</p>
             {exchange.answer ? (
-              <AnswerView answer={exchange.answer} />
+              <AnswerView answer={exchange.answer} cachedAt={exchange.cachedAt} />
             ) : (
               <p role="alert" className="error">
                 {errorMessage(exchange.error, t, "ask")}

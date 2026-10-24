@@ -161,10 +161,13 @@ This project is built incrementally. Only what is listed under *Implemented* wor
     integration tests on PostgreSQL + pgvector, and a build of the production image
     (multi-stage, non-root, locked dependencies).
 - Web interface (`frontend/`, Next.js + TypeScript + Tailwind), French by default with
-  an English switch: import a repository with live progress, then ask questions;
-  answers render as Markdown with `[S1]` markers linked to the cited lines on GitHub.
-  The browser only talks to the Next.js server, which forwards to FastAPI with the API
-  key: the key never reaches the browser (see `frontend/README.md`).
+  an English switch: pick an indexed repository (or import one, with live progress),
+  then ask questions; answers render as Markdown with `[S1]` markers linked to the
+  cited lines on GitHub. Suggested questions show cached answers, labelled with their
+  generation date. The browser only talks to the Next.js server, which forwards to
+  FastAPI with the API key: the key never reaches the browser. A public demo mode
+  (demo key, `IMPORTS_ENABLED=false`) and security headers (CSP...) are described in
+  `frontend/README.md`.
 
 MVP 1 is complete. Later milestones add hybrid retrieval, reranking and evaluation, then more data sources
 (PostgreSQL, PDF), LangGraph orchestration, MCP tools and production infrastructure.
@@ -286,7 +289,8 @@ docker run --rm --env-file backend/.env uaw-backend alembic upgrade head
 ```
 
 `frontend/Dockerfile` builds the web interface (Next.js standalone server, non-root).
-It needs `API_URL` (the backend, as seen from that container) and `API_KEY`.
+It needs `API_URL` (the backend, as seen from that container) and `API_KEY`: on a
+public deployment, the backend's `DEMO_API_KEY`, with `IMPORTS_ENABLED=false`.
 
 Expected topology: a reverse proxy (TLS) in front of the web interface only; the API
 is reachable by the web container, not from the internet. Set the API's

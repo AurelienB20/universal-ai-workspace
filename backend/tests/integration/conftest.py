@@ -45,6 +45,11 @@ def database_url() -> str:
 async def session_factory(database_url: str) -> AsyncIterator[async_sessionmaker[AsyncSession]]:
     engine = create_async_engine(database_url)
     async with engine.begin() as connection:
+        # A SQL_ASCII database (a cluster created with the C locale) stores text but
+        # refuses non-ASCII characters in JSONB: fail clearly rather than in one test.
+        encoding = (await connection.execute(text("SHOW server_encoding"))).scalar_one()
+        if encoding != "UTF8":
+            pytest.fail(f"The test database must be UTF8, not {encoding} (see README).")
         # Clean before (not after) each test, so a failed test leaves its data to inspect.
         await connection.execute(
             text(

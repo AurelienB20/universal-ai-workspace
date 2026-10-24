@@ -59,8 +59,8 @@ class CachedAnswerStore:
                         "snapshot_id": snapshot_id,
                         "language": language,
                         "position": position,
-                        "question": question,
-                        "answer": answer.model_dump(mode="json"),
+                        "question": _storable(question),
+                        "answer": _storable(answer.model_dump(mode="json")),
                     }
                     for position, (question, answer) in enumerate(answers)
                 ],
@@ -80,3 +80,19 @@ class CachedAnswerStore:
             )
             for row in (await self._session.scalars(stmt)).all()
         ]
+
+
+# PostgreSQL text and JSONB cannot hold U+0000, which a model can write when quoting
+# binary data (e.g. a b"\x00" separator). U+2400 is its visible stand-in.
+_NUL, _NUL_SYMBOL = "\x00", "\u2400"
+
+
+def _storable[T](value: T) -> T:
+    """``value`` with every U+0000 in its strings replaced, at any depth."""
+    if isinstance(value, str):
+        return value.replace(_NUL, _NUL_SYMBOL)  # type: ignore[return-value]
+    if isinstance(value, dict):
+        return {key: _storable(item) for key, item in value.items()}  # type: ignore[return-value]
+    if isinstance(value, list):
+        return [_storable(item) for item in value]  # type: ignore[return-value]
+    return value

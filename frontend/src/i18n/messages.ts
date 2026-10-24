@@ -7,10 +7,15 @@ const fr = {
   languageName: "Français",
   languageLabel: "Langue",
   tagline:
-    "Importez un dépôt GitHub public, puis posez vos questions sur son code. Chaque réponse cite les lignes exactes.",
+    "Posez vos questions sur le code d'un dépôt GitHub public. Chaque réponse cite les lignes exactes.",
   sourceCode: "Code source",
 
   repoHeading: "1. Dépôt",
+  repositoriesLabel: "Dépôts indexés",
+  loadingRepositories: "Chargement des dépôts…",
+  noRepositories: "Aucun dépôt n'est encore indexé.",
+  repositoryMeta: (files: number, commit: string) => `${files} fichiers · commit ${commit}`,
+  importHeading: "Importer un autre dépôt",
   repoLabel: "URL du dépôt GitHub",
   importButton: "Importer",
   importing: "Import en cours…",
@@ -38,10 +43,15 @@ const fr = {
   insufficientContext:
     "Contexte insuffisant : les passages trouvés ne permettent pas de répondre complètement.",
   answeredBy: (model: string, commit: string) => `${model} · commit ${commit}`,
+  suggestionsHeading: "Questions suggérées",
+  suggestionsHint: "Réponses générées à l'avance : affichage immédiat, sans appel au modèle.",
+  cachedAnswer: (date: string) => `Réponse en cache, générée le ${date}`,
+  dateLocale: "fr-FR",
 
   errors: {
     network: "Impossible de joindre le serveur de l'interface.",
     unauthorized: "Le serveur de l'interface n'a pas la bonne clé d'API (API_KEY).",
+    forbidden: "Cette action n'est pas disponible sur cette démo.",
     invalidUrl:
       "URL invalide : indiquez l'URL d'un dépôt GitHub public, par exemple https://github.com/pallets/itsdangerous.",
     notIndexed: "Ce dépôt n'est pas (ou plus) indexé : importez-le à nouveau.",
@@ -51,6 +61,8 @@ const fr = {
     tooMany: (wait: string | null) =>
       `Trop de requêtes, ou budget quotidien atteint.${wait ? ` Réessayez dans ${wait}.` : ""}`,
     backendDown: "Le backend est injoignable.",
+    busy: (wait: string | null) =>
+      `Le serveur répond déjà à d'autres questions.${wait ? ` Réessayez dans ${wait}.` : ""}`,
     unavailable: "Service indisponible : clé de fournisseur manquante, ou fournisseur en panne.",
     unexpected: (status: number) => `Erreur inattendue (HTTP ${status}).`,
   },
@@ -68,10 +80,15 @@ const en: Messages = {
   languageName: "English",
   languageLabel: "Language",
   tagline:
-    "Import a public GitHub repository, then ask questions about its code. Every answer cites the exact lines.",
+    "Ask questions about the code of a public GitHub repository. Every answer cites the exact lines.",
   sourceCode: "Source code",
 
   repoHeading: "1. Repository",
+  repositoriesLabel: "Indexed repositories",
+  loadingRepositories: "Loading repositories…",
+  noRepositories: "No repository is indexed yet.",
+  repositoryMeta: (files, commit) => `${files} files · commit ${commit}`,
+  importHeading: "Import another repository",
   repoLabel: "GitHub repository URL",
   importButton: "Import",
   importing: "Importing…",
@@ -98,10 +115,15 @@ const en: Messages = {
   insufficientContext:
     "Insufficient context: the passages found do not fully answer the question.",
   answeredBy: (model, commit) => `${model} · commit ${commit}`,
+  suggestionsHeading: "Suggested questions",
+  suggestionsHint: "Answers generated in advance: shown at once, with no model call.",
+  cachedAnswer: (date) => `Cached answer, generated on ${date}`,
+  dateLocale: "en-GB",
 
   errors: {
     network: "Cannot reach the interface server.",
     unauthorized: "The interface server does not have the right API key (API_KEY).",
+    forbidden: "This action is not available on this demo.",
     invalidUrl:
       "Invalid URL: enter the URL of a public GitHub repository, for example https://github.com/pallets/itsdangerous.",
     notIndexed: "This repository is not (or no longer) indexed: import it again.",
@@ -110,6 +132,8 @@ const en: Messages = {
     tooLarge: "Request too large.",
     tooMany: (wait) => `Too many requests, or daily budget reached.${wait ? ` Try again in ${wait}.` : ""}`,
     backendDown: "The backend is unreachable.",
+    busy: (wait) =>
+      `The server is already answering other questions.${wait ? ` Try again in ${wait}.` : ""}`,
     unavailable: "Service unavailable: a provider key is missing, or a provider is down.",
     unexpected: (status) => `Unexpected error (HTTP ${status}).`,
   },

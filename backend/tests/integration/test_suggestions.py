@@ -230,3 +230,24 @@ async def test_unknown_repository_is_404(client: httpx.AsyncClient) -> None:
     response = await client.get("/repositories/octo/nothing/suggestions", headers=ADMIN)
 
     assert response.status_code == 404
+
+
+async def test_an_answer_containing_a_nul_character_is_stored(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_factory.begin() as session:
+        await add_snapshot(session, files={"src/auth.py": [vector((0, 1.0))]})
+    # A model quoting binary data (a b"\x00" separator) can write a real U+0000, which
+    # PostgreSQL refuses in text and JSONB, even in a UTF-8 database.
+    model = FakeAnswerModel("The separator is \x00 here [S1].")
+
+    async with client_for(session_factory, model) as http:
+        created = await http.put(
+            URL, json={"language": "en", "questions": ["Separator\x00?"]}, headers=ADMIN
+        )
+        served = (await http.get(URL, params={"language": "en"}, headers=DEMO)).json()
+
+    assert created.status_code == 200
+    item = served["items"][0]
+    assert item["question"] == "Separator\u2400?"
+    assert item["answer"]["answer"].startswith("The separator is \u2400 here")

@@ -70,7 +70,7 @@ export function ImportPanel({ onReady }: Props) {
 
   return (
     <section className="card">
-      <h2 className="card-title">{t.repoHeading}</h2>
+      <h2 className="card-title">{t.importHeading}</h2>
 
       <form onSubmit={submit} className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <label className="flex flex-1 flex-col gap-1 text-sm">
