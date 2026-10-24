@@ -9,7 +9,12 @@ import pytest
 from tests.generation_fakes import hit
 from uaw.config import Settings
 from uaw.generation.citations import resolve_citations
-from uaw.generation.claude import ClaudeAnswerModel, create_anthropic_client
+from uaw.generation.claude import (
+    AnswerDelta,
+    ClaudeAnswerModel,
+    Generation,
+    create_anthropic_client,
+)
 from uaw.generation.prompt import SYSTEM_PROMPT, build_user_message, label_sources
 
 pytestmark = [pytest.mark.live, pytest.mark.anyio]
@@ -67,3 +72,23 @@ async def test_unanswerable_question_is_flagged() -> None:
     )
 
     assert generation.draft.insufficient_context
+
+
+async def test_streamed_draft_is_the_final_answer() -> None:
+    sources = label_sources(PASSAGES)
+    model = claude_model(Settings())
+    deltas: list[str] = []
+    final: Generation | None = None
+
+    async for event in model.stream(
+        SYSTEM_PROMPT, build_user_message("How are tokens verified?", sources)
+    ):
+        if isinstance(event, AnswerDelta):
+            deltas.append(event.text)
+        elif isinstance(event, Generation):
+            final = event
+
+    assert final is not None
+    # Several pieces, which put together are exactly the validated answer.
+    assert len(deltas) > 1
+    assert "".join(deltas) == final.draft.answer

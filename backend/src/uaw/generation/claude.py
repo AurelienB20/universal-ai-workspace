@@ -4,9 +4,13 @@ Responsibilities: one structured-output request per question, checks on the stop
 reason before reading the content (refusal, truncation), strict validation of the
 returned JSON, and translation of SDK errors into user-safe messages. Retries of rate
 limits, server errors and timeouts are done by the SDK (``max_retries``).
+
+``stream`` sends the same request and yields the answer text while it is written;
+the complete message goes through the same checks as ``generate`` at the end.
 """
 
 import logging
+from collections.abc import AsyncGenerator, AsyncIterator
 from typing import Any, Protocol
 
 import anthropic
@@ -19,6 +23,7 @@ from uaw.generation.errors import (
     GenerationRefusedError,
     GenerationUnavailableError,
 )
+from uaw.generation.json_stream import AnswerTextExtractor
 from uaw.usage.meter import record_usage
 
 logger = logging.getLogger(__name__)
@@ -67,10 +72,34 @@ class Generation(BaseModel):
     output_tokens: int
 
 
+class AnswerDelta(BaseModel):
+    """More of the answer text, unchecked: citations are verified at the end."""
+
+    model_config = ConfigDict(frozen=True)
+
+    text: str
+
+
+class AnswerRestart(BaseModel):
+    """The model was replaced mid-answer (refusal fallback): the text so far is void."""
+
+    model_config = ConfigDict(frozen=True)
+
+
+# A stream yields deltas and restarts, then one Generation, always last.
+StreamEvent = AnswerDelta | AnswerRestart | Generation
+
+# The API reports output tokens only at the end. When a stream stops early, they are
+# estimated from the text received (code and JSON: about 3 characters per token).
+CHARS_PER_TOKEN = 3
+
+
 class AnswerModel(Protocol):
     """Generates a draft answer from a system prompt and a user message."""
 
     async def generate(self, system: str, user_message: str) -> Generation: ...
+
+    def stream(self, system: str, user_message: str) -> AsyncIterator[StreamEvent]: ...
 
 
 class ClaudeAnswerModel:
@@ -91,26 +120,85 @@ class ClaudeAnswerModel:
         self._refusal_fallback = refusal_fallback
 
     async def generate(self, system: str, user_message: str) -> Generation:
+        try:
+            message = await self._client.beta.messages.create(**self._request(system, user_message))
+        except anthropic.APIError as exc:
+            raise _translate(exc) from exc
+        return self._parse(message)
+
+    async def stream(self, system: str, user_message: str) -> AsyncGenerator[StreamEvent]:
+        extractor = AnswerTextExtractor()
+        # Index of the block that holds the answer: the first text block after the last
+        # fallback block, as in ``_final_text``.
+        answer_block: int | None = None
+        shown = False
+        started = False
+        received = 0
+        try:
+            async with self._client.beta.messages.stream(
+                **self._request(system, user_message)
+            ) as stream:
+                try:
+                    async for event in stream:
+                        if event.type == "message_start":
+                            started = True
+                        elif event.type == "content_block_start":
+                            block = event.content_block
+                            if block.type == "fallback":
+                                answer_block, extractor = None, AnswerTextExtractor()
+                                if shown:
+                                    shown = False
+                                    yield AnswerRestart()
+                            elif block.type == "text" and answer_block is None:
+                                answer_block = event.index
+                        elif (
+                            event.type == "content_block_delta" and event.delta.type == "text_delta"
+                        ):
+                            received += len(event.delta.text)
+                            if event.index == answer_block:
+                                text = extractor.feed(event.delta.text)
+                                if text:
+                                    shown = True
+                                    yield AnswerDelta(text=text)
+                    message = await stream.get_final_message()
+                except BaseException:
+                    # Failed, cancelled or abandoned by the reader: what was generated
+                    # is billed all the same.
+                    if started:
+                        self._record_partial(stream.current_message_snapshot, received)
+                    raise
+        except anthropic.APIError as exc:
+            raise _translate(exc) from exc
+        yield self._parse(message)
+
+    def _request(self, system: str, user_message: str) -> dict[str, Any]:
         fallback: dict[str, Any] = (
             {"fallbacks": "default", "betas": [REFUSAL_FALLBACK_BETA]}
             if self._refusal_fallback
             else {}
         )
-        try:
-            message = await self._client.beta.messages.create(
-                model=self._model,
-                max_tokens=self._max_tokens,
-                system=system,
-                messages=[{"role": "user", "content": user_message}],
-                output_config={
-                    "effort": self._effort,
-                    "format": {"type": "json_schema", "schema": DRAFT_ANSWER_SCHEMA},
-                },
-                **fallback,
-            )
-        except anthropic.APIError as exc:
-            raise _translate(exc) from exc
-        return self._parse(message)
+        return {
+            "model": self._model,
+            "max_tokens": self._max_tokens,
+            "system": system,
+            "messages": [{"role": "user", "content": user_message}],
+            "output_config": {
+                "effort": self._effort,
+                "format": {"type": "json_schema", "schema": DRAFT_ANSWER_SCHEMA},
+            },
+            **fallback,
+        }
+
+    @staticmethod
+    def _record_partial(snapshot: BetaMessage, received_chars: int) -> None:
+        # Thinking tokens are billed but not visible: the estimate is a lower bound.
+        estimated = -(-received_chars // CHARS_PER_TOKEN)
+        record_usage(
+            "anthropic",
+            snapshot.model,
+            input_tokens=snapshot.usage.input_tokens,
+            output_tokens=max(snapshot.usage.output_tokens, estimated),
+        )
 
     def _parse(self, message: BetaMessage) -> Generation:
         # Refused and truncated responses are billed too.

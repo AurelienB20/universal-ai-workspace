@@ -2,21 +2,22 @@
 
 import logging
 import time
+from collections.abc import AsyncIterator, Sequence
 
 from pydantic import BaseModel, ConfigDict
 
 from uaw.connectors.github.url import GitHubRepoRef
 from uaw.generation.citations import Citation, resolve_citations
-from uaw.generation.claude import AnswerModel
+from uaw.generation.claude import AnswerDelta, AnswerModel, AnswerRestart, Generation
 from uaw.generation.prompt import SYSTEM_PROMPT, Source, build_user_message, label_sources
-from uaw.retrieval.retriever import Retriever
+from uaw.retrieval.retriever import Retriever, SearchResult
 
 logger = logging.getLogger(__name__)
 
 NO_SOURCES_MESSAGE = "The indexed repository has no content to answer from."
 
 
-class RetrievedPassage(BaseModel):
+class Passage(BaseModel):
     """A passage shown to the model, in retrieval order."""
 
     model_config = ConfigDict(frozen=True)
@@ -32,6 +33,9 @@ class RetrievedPassage(BaseModel):
     # Relevance from the reranker, when one reordered the passages.
     rerank_score: float | None = None
     url: str
+
+
+class RetrievedPassage(Passage):
     # Whether the final answer cites it.
     cited: bool
 
@@ -68,6 +72,20 @@ class Answer(BaseModel):
     trace: AnswerTrace | None = None
 
 
+class SourcesFound(BaseModel):
+    """The passages the model will answer from, known before it starts writing."""
+
+    model_config = ConfigDict(frozen=True)
+
+    repository: str
+    commit_sha: str
+    passages: list[Passage]
+
+
+# What ``ask_stream`` yields: the sources first, then draft text, then the checked answer.
+AnswerEvent = SourcesFound | AnswerDelta | AnswerRestart | Answer
+
+
 class Answerer:
     def __init__(self, retriever: Retriever, model: AnswerModel, *, top_k: int) -> None:
         self._retriever = retriever
@@ -75,65 +93,107 @@ class Answerer:
         self._top_k = top_k
 
     async def ask(self, repository: GitHubRepoRef, question: str) -> Answer:
-        started = time.perf_counter()
-        result = await self._retriever.search(repository, question, top_k=self._top_k)
-        retrieval_ms = _elapsed_ms(started)
+        result, retrieval_ms = await self._search(repository, question)
         if not result.hits:
-            return Answer(
-                repository=result.repository,
-                commit_sha=result.commit_sha,
-                answer=NO_SOURCES_MESSAGE,
-                insufficient_context=True,
-                citations=[],
-                model=None,
-                trace=AnswerTrace(
-                    passages=[],
-                    removed_citations=[],
-                    retrieval_ms=retrieval_ms,
-                    generation_ms=0,
-                    input_tokens=0,
-                    output_tokens=0,
-                ),
-            )
-
+            return _no_sources(result, retrieval_ms)
         sources = label_sources(result.hits)
         started = time.perf_counter()
         generation = await self._model.generate(
             SYSTEM_PROMPT, build_user_message(question, sources)
         )
-        generation_ms = _elapsed_ms(started)
-        resolved = resolve_citations(generation.draft.answer, sources)
-        logger.info(
-            "Answered a question on %s with %s (%d sources, %d cited, %d+%d tokens)",
-            result.repository,
-            generation.model,
-            len(sources),
-            len(resolved.citations),
-            generation.input_tokens,
-            generation.output_tokens,
-        )
-        cited_ids = {citation.id for citation in resolved.citations}
-        return Answer(
+        return _answer(result, sources, generation, retrieval_ms, _elapsed_ms(started))
+
+    async def ask_stream(
+        self, repository: GitHubRepoRef, question: str
+    ) -> AsyncIterator[AnswerEvent]:
+        """Like ``ask``, but yields the sources as soon as they are found, then the
+        answer text while it is written. The last event is the checked ``Answer``: the
+        draft text before it is unchecked and must be replaced by it."""
+        result, retrieval_ms = await self._search(repository, question)
+        sources = label_sources(result.hits)
+        yield SourcesFound(
             repository=result.repository,
             commit_sha=result.commit_sha,
-            answer=resolved.text,
-            insufficient_context=generation.draft.insufficient_context,
-            citations=resolved.citations,
-            model=generation.model,
-            trace=AnswerTrace(
-                passages=[_passage(source, source.id in cited_ids) for source in sources],
-                removed_citations=resolved.unknown_ids,
-                retrieval_ms=retrieval_ms,
-                generation_ms=generation_ms,
-                input_tokens=generation.input_tokens,
-                output_tokens=generation.output_tokens,
-            ),
+            passages=[_passage(source) for source in sources],
         )
+        if not sources:
+            yield _no_sources(result, retrieval_ms)
+            return
+        started = time.perf_counter()
+        user_message = build_user_message(question, sources)
+        async for event in self._model.stream(SYSTEM_PROMPT, user_message):
+            if isinstance(event, Generation):
+                yield _answer(result, sources, event, retrieval_ms, _elapsed_ms(started))
+            else:
+                yield event
+
+    async def _search(self, repository: GitHubRepoRef, question: str) -> tuple[SearchResult, int]:
+        started = time.perf_counter()
+        result = await self._retriever.search(repository, question, top_k=self._top_k)
+        return result, _elapsed_ms(started)
 
 
-def _passage(source: Source, cited: bool) -> RetrievedPassage:
+def _no_sources(result: SearchResult, retrieval_ms: int) -> Answer:
+    return Answer(
+        repository=result.repository,
+        commit_sha=result.commit_sha,
+        answer=NO_SOURCES_MESSAGE,
+        insufficient_context=True,
+        citations=[],
+        model=None,
+        trace=AnswerTrace(
+            passages=[],
+            removed_citations=[],
+            retrieval_ms=retrieval_ms,
+            generation_ms=0,
+            input_tokens=0,
+            output_tokens=0,
+        ),
+    )
+
+
+def _answer(
+    result: SearchResult,
+    sources: Sequence[Source],
+    generation: Generation,
+    retrieval_ms: int,
+    generation_ms: int,
+) -> Answer:
+    resolved = resolve_citations(generation.draft.answer, sources)
+    logger.info(
+        "Answered a question on %s with %s (%d sources, %d cited, %d+%d tokens)",
+        result.repository,
+        generation.model,
+        len(sources),
+        len(resolved.citations),
+        generation.input_tokens,
+        generation.output_tokens,
+    )
+    cited_ids = {citation.id for citation in resolved.citations}
+    return Answer(
+        repository=result.repository,
+        commit_sha=result.commit_sha,
+        answer=resolved.text,
+        insufficient_context=generation.draft.insufficient_context,
+        citations=resolved.citations,
+        model=generation.model,
+        trace=AnswerTrace(
+            passages=[
+                RetrievedPassage(**_passage(source).model_dump(), cited=source.id in cited_ids)
+                for source in sources
+            ],
+            removed_citations=resolved.unknown_ids,
+            retrieval_ms=retrieval_ms,
+            generation_ms=generation_ms,
+            input_tokens=generation.input_tokens,
+            output_tokens=generation.output_tokens,
+        ),
+    )
+
+
+def _passage(source: Source) -> Passage:
     hit = source.hit
-    return RetrievedPassage(
+    return Passage(
         id=source.id,
         path=hit.path,
         start_line=hit.start_line,
@@ -143,7 +203,6 @@ def _passage(source: Source, cited: bool) -> RetrievedPassage:
         score=hit.score,
         rerank_score=hit.rerank_score,
         url=hit.url,
-        cited=cited,
     )
 
 

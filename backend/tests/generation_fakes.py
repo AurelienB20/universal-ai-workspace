@@ -1,8 +1,9 @@
 """Test doubles for answer generation."""
 
 import uuid
+from collections.abc import AsyncIterator
 
-from uaw.generation.claude import DraftAnswer, Generation
+from uaw.generation.claude import AnswerDelta, DraftAnswer, Generation, StreamEvent
 from uaw.generation.prompt import Source, label_sources
 from uaw.retrieval.retriever import SearchHit
 
@@ -35,3 +36,13 @@ class FakeAnswerModel:
     async def generate(self, system: str, user_message: str) -> Generation:
         self.calls.append((system, user_message))
         return Generation(draft=self.draft, model="fake-model", input_tokens=100, output_tokens=20)
+
+    async def stream(self, system: str, user_message: str) -> AsyncIterator[StreamEvent]:
+        """The answer of ``generate``, in pieces of ``CHUNK_SIZE`` characters."""
+        generation = await self.generate(system, user_message)
+        text = generation.draft.answer
+        for start in range(0, len(text), self.CHUNK_SIZE):
+            yield AnswerDelta(text=text[start : start + self.CHUNK_SIZE])
+        yield generation
+
+    CHUNK_SIZE = 8
