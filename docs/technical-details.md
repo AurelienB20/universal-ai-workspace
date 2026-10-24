@@ -264,6 +264,9 @@ except the live tests, which need API keys.
 
 ## Deployment
 
+The full production stack (Caddy, web, API, PostgreSQL), its backups and its checks are
+described step by step in [deployment.md](deployment.md). The images:
+
 `backend/Dockerfile` builds the production image (`APP_ENV=production`, JSON logs,
 non-root user). It needs `DATABASE_URL`, `API_KEY`, `VOYAGE_API_KEY` and
 `ANTHROPIC_API_KEY`. Apply the migrations before starting a new version:

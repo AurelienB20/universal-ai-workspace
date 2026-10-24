@@ -120,8 +120,10 @@ cd ../frontend && npm install && cp .env.example .env.local
 npm run dev                                     # http://localhost:3000
 ```
 
-Setup without Docker, every API call, checks and deployment:
-[docs/technical-details.md](docs/technical-details.md).
+Setup without Docker, every API call and checks:
+[docs/technical-details.md](docs/technical-details.md). Running the public demo on one
+server (Caddy, HTTPS, backups), with the same stack CI runs on every push:
+[docs/deployment.md](docs/deployment.md).
 
 ## Roadmap
 
@@ -131,7 +133,7 @@ Setup without Docker, every API call, checks and deployment:
   snapshot cleanup, cached suggested answers, security headers.
 - [x] **Showcase:** *Explain the Evidence* under every answer, a *How it is built* page,
   suggested questions.
-- [ ] Public deployment (Docker Compose, Caddy, tested backups).
+- [ ] Public deployment: the stack, backups and checks are ready and tested in CI ([guide](docs/deployment.md)); the server is next.
 - [ ] Streaming answers (server-sent events).
 - [ ] Harder evaluation set, then hybrid search (full text + vectors, RRF), then
   reranking, each kept only if measured better.
