@@ -11,13 +11,24 @@ citations the model cannot invent.**
 ![Claude](https://img.shields.io/badge/LLM-Claude-D97757)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-<!-- Screenshot / GIF of an answer with its citations: added with the landing page (V3). -->
+![A suggested question answered from the cache, then "See how this answer was built": the passages retrieved, their similarity, and which ones the answer cites](docs/images/demo.gif)
 
 Import a public repository, ask *"How are expired tokens detected?"*, and get a Markdown
 answer where every `[S1]` links to the cited lines on GitHub, at the exact commit that was
-indexed. A retrieval-augmented generation (RAG) system built end to end, from a hardened
-GitHub connector to a public-demo-ready web interface, with the cost and security controls
-a real deployment needs.
+indexed. Under each answer, *See how this answer was built* shows the evidence: every
+passage given to the model, its similarity score, whether the answer cites it, and any
+citation the server removed. A retrieval-augmented generation (RAG) system built end to
+end, from a hardened GitHub connector to a public-demo-ready web interface, with the cost
+and security controls a real deployment needs.
+
+The app also has a **How it is built** page: each pipeline step, the choice made, the
+alternatives ruled out, an architecture diagram with its trust zones, and eight
+architecture decisions with their trade-offs, each linked to the code.
+
+<p align="center">
+  <img src="docs/images/how-it-is-built.jpg" alt="The How it is built page: the seven pipeline steps, the choice made at each one and the alternatives ruled out" width="49%">
+  <img src="docs/images/demo-evidence.jpg" alt="The evidence panel: passages ranked by similarity, cited ones highlighted" width="49%">
+</p>
 
 ## What makes it more than a RAG demo
 
@@ -76,7 +87,7 @@ The retrieval scores are saturated: this question set is too easy to measure any
 improvement. A harder evaluation comes first on the roadmap, before hybrid search or
 reranking, so that each change is kept only if it measurably helps.
 
-**Tests:** 458 backend tests (unit, and integration against a real PostgreSQL), 28 frontend
+**Tests:** 460 backend tests (unit, and integration against a real PostgreSQL), 32 frontend
 tests, strict typing (mypy, TypeScript), all run in CI along with both production Docker
 image builds.
 
@@ -114,8 +125,8 @@ Setup without Docker, every API call, checks and deployment:
   interface.
 - [x] **Safe public foundation:** demo and admin roles, atomic budgets, concurrency limit,
   snapshot cleanup, cached suggested answers, security headers.
-- [ ] Landing page and *Explain the Evidence*: show which passages were retrieved, their
-  scores, and which ones the answer used.
+- [x] **Showcase:** *Explain the Evidence* under every answer, a *How it is built* page,
+  suggested questions.
 - [ ] Public deployment (Docker Compose, Caddy, tested backups).
 - [ ] Streaming answers (server-sent events).
 - [ ] Harder evaluation set, then hybrid search (full text + vectors, RRF), then

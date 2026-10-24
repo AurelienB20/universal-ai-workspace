@@ -25,8 +25,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     // LanguageProvider updates `lang` when the visitor picks another language.
+    // translate="no": the interface has its own French and English versions, and a
+    // browser's automatic translation would rewrite code names ("itsdangerous") and
+    // quoted code in answers.
     <html
       lang={DEFAULT_LANGUAGE}
+      translate="no"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">

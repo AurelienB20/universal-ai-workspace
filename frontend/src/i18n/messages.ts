@@ -9,6 +9,15 @@ const fr = {
   tagline:
     "Posez vos questions sur le code d'un dépôt GitHub public. Chaque réponse cite les lignes exactes.",
   sourceCode: "Code source",
+  intro: {
+    title: "Interrogez le code, vérifiez chaque source",
+    steps: [
+      "Choisissez un dépôt indexé.",
+      "Posez une question en langage naturel, ou cliquez sur une question suggérée.",
+      "Cliquez sur une citation [S1] pour voir les lignes exactes, ou ouvrez « Voir comment cette réponse a été construite ».",
+    ],
+    architectureLink: "Comment c'est construit : chaque étape et chaque choix",
+  },
 
   repoHeading: "1. Dépôt",
   repositoriesLabel: "Dépôts indexés",
@@ -100,6 +109,15 @@ const en: Messages = {
   tagline:
     "Ask questions about the code of a public GitHub repository. Every answer cites the exact lines.",
   sourceCode: "Source code",
+  intro: {
+    title: "Question the code, check every source",
+    steps: [
+      "Pick an indexed repository.",
+      "Ask a question in plain language, or click a suggested question.",
+      "Click a [S1] citation to see the exact lines, or open \"See how this answer was built\".",
+    ],
+    architectureLink: "How it is built: every step and every choice",
+  },
 
   repoHeading: "1. Repository",
   repositoriesLabel: "Indexed repositories",
