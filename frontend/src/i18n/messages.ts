@@ -47,6 +47,24 @@ const fr = {
   suggestionsHint: "Réponses générées à l'avance : affichage immédiat, sans appel au modèle.",
   cachedAnswer: (date: string) => `Réponse en cache, générée le ${date}`,
   dateLocale: "fr-FR",
+  evidence: {
+    toggle: "Voir comment cette réponse a été construite",
+    intro:
+      "Ces passages ont été retrouvés par recherche vectorielle, du plus proche de la question (S1) au moins proche, puis donnés au modèle. Il ne peut citer qu'eux : le serveur vérifie chaque citation.",
+    summary: (passages: number, cited: number) =>
+      `${passages} passages retrouvés, ${cited} cité${cited > 1 ? "s" : ""} dans la réponse`,
+    timings: (retrieval: string, generation: string) =>
+      `Recherche ${retrieval} · génération ${generation}`,
+    tokens: (input: string, output: string) => `${input} tokens en entrée, ${output} en sortie`,
+    removed: (ids: string[]) =>
+      ids.length > 1
+        ? `Citations inventées par le modèle, supprimées par le serveur : ${ids.join(", ")}`
+        : `Citation inventée par le modèle, supprimée par le serveur : ${ids[0]}`,
+    cited: "cité",
+    notCited: "non cité",
+    score: "similarité (0 à 1)",
+    showContent: "Voir le passage",
+  },
 
   errors: {
     network: "Impossible de joindre le serveur de l'interface.",
@@ -119,6 +137,22 @@ const en: Messages = {
   suggestionsHint: "Answers generated in advance: shown at once, with no model call.",
   cachedAnswer: (date) => `Cached answer, generated on ${date}`,
   dateLocale: "en-GB",
+  evidence: {
+    toggle: "See how this answer was built",
+    intro:
+      "These passages were found by vector search, from the closest to the question (S1) to the least close, then given to the model. It can only cite them: the server checks every citation.",
+    summary: (passages, cited) => `${passages} passages retrieved, ${cited} cited in the answer`,
+    timings: (retrieval, generation) => `Search ${retrieval} · generation ${generation}`,
+    tokens: (input, output) => `${input} input tokens, ${output} output`,
+    removed: (ids) =>
+      ids.length > 1
+        ? `Citations invented by the model, removed by the server: ${ids.join(", ")}`
+        : `Citation invented by the model, removed by the server: ${ids[0]}`,
+    cited: "cited",
+    notCited: "not cited",
+    score: "similarity (0 to 1)",
+    showContent: "Show the passage",
+  },
 
   errors: {
     network: "Cannot reach the interface server.",

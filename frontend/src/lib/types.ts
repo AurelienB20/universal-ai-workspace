@@ -29,6 +29,29 @@ export interface Citation {
   url: string;
 }
 
+// A passage shown to the model, in retrieval order.
+export interface RetrievedPassage {
+  id: string;
+  path: string;
+  start_line: number;
+  end_line: number;
+  section: string | null;
+  content: string;
+  score: number; // cosine similarity with the question
+  url: string;
+  cited: boolean;
+}
+
+// How the answer was built (backend/src/uaw/generation/answerer.py).
+export interface AnswerTrace {
+  passages: RetrievedPassage[];
+  removed_citations: string[]; // cited by the model without having been provided
+  retrieval_ms: number;
+  generation_ms: number;
+  input_tokens: number;
+  output_tokens: number;
+}
+
 export interface Answer {
   repository: string;
   commit_sha: string;
@@ -36,6 +59,7 @@ export interface Answer {
   insufficient_context: boolean;
   citations: Citation[];
   model: string | null;
+  trace?: AnswerTrace | null; // absent from answers cached before traces existed
 }
 
 // backend/src/uaw/storage/repositories.py

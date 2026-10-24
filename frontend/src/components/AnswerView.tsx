@@ -7,6 +7,8 @@ import { useLanguage } from "@/i18n/language";
 import { lineRange, linkCitations } from "@/lib/citations";
 import type { Answer, Citation } from "@/lib/types";
 
+import { EvidencePanel } from "./EvidencePanel";
+
 const CITATION_ID = /^S\d+$/;
 
 interface Props {
@@ -82,6 +84,8 @@ export function AnswerView({ answer, cachedAt }: Props) {
           {t.answeredBy(answer.model, answer.commit_sha.slice(0, 7))}
         </p>
       )}
+
+      {answer.trace && answer.trace.passages.length > 0 && <EvidencePanel trace={answer.trace} />}
     </div>
   );
 }
