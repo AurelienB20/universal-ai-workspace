@@ -42,12 +42,20 @@ class Settings(BaseSettings):
     rate_limit_search_per_minute: int = Field(default=60, ge=0)
     rate_limit_ask_per_minute: int = Field(default=10, ge=0)
     max_request_body_kb: int = Field(default=64, gt=0, le=1024)
+    # Questions answered at the same time, all clients combined. Beyond, a question is
+    # refused at once (503) rather than queued.
+    max_concurrent_asks: int = Field(default=4, gt=0, le=50)
 
-    # Cost control: tokens per UTC day, all clients combined. 0 = no budget. Once a
-    # budget is spent, new requests needing that provider are refused until midnight
-    # UTC; a request already running is allowed to finish.
+    # Cost control: tokens per UTC day, all clients combined. 0 = no budget; both are
+    # required in production. Once a budget is spent, new requests needing that
+    # provider are refused until midnight UTC.
     daily_embedding_token_budget: int = Field(default=0, ge=0)
     daily_llm_token_budget: int = Field(default=0, ge=0)
+    # Worst-case tokens reserved by each question (and search) before it starts, so
+    # that simultaneous requests cannot overshoot the budget together. The LLM
+    # estimate covers the passages, the question and LLM_MAX_TOKENS.
+    ask_reserved_llm_tokens: int = Field(default=12_000, gt=0)
+    query_reserved_embedding_tokens: int = Field(default=2_000, gt=0)
 
     # GitHub connector. A token is optional: it raises the API rate limit from
     # 60 to 5,000 requests per hour. No scope is needed for public repositories.
@@ -132,6 +140,18 @@ class Settings(BaseSettings):
         # A public server without a key would let anyone spend the provider budgets.
         if self.app_env == "production" and self.api_key is None:
             raise ValueError("API_KEY is required when APP_ENV=production")
+        return self
+
+    @model_validator(mode="after")
+    def _require_budgets_in_production(self) -> Self:
+        # Without a budget, a leaked key or a bug could spend without any limit.
+        if self.app_env == "production" and not (
+            self.daily_embedding_token_budget and self.daily_llm_token_budget
+        ):
+            raise ValueError(
+                "DAILY_EMBEDDING_TOKEN_BUDGET and DAILY_LLM_TOKEN_BUDGET are required "
+                "when APP_ENV=production"
+            )
         return self
 
     @model_validator(mode="after")

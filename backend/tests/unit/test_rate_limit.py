@@ -1,10 +1,11 @@
 from typing import Any, cast
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from uaw.api.deps import get_services
-from uaw.api.ratelimit import RateLimiter
+from uaw.api.ratelimit import ConcurrencyLimiter, RateLimiter
 from uaw.config import Settings
 from uaw.main import create_app
 from uaw.services import Services
@@ -80,3 +81,26 @@ def test_zero_disables_a_limit() -> None:
     body = {"repository": "o/r", "question": "Where?"}
 
     assert {http.post("/ask", json=body).status_code for _ in range(20)} == {503}
+
+
+def test_concurrency_limiter_refuses_beyond_the_limit_then_frees_slots() -> None:
+    limiter = ConcurrencyLimiter(2)
+
+    with limiter.slot(), limiter.slot():
+        with pytest.raises(HTTPException) as exc_info, limiter.slot():
+            pass
+        assert exc_info.value.status_code == 503
+        assert exc_info.value.headers == {"Retry-After": "5"}
+
+    with limiter.slot():  # both slots were released
+        pass
+
+
+def test_concurrency_limiter_frees_the_slot_when_the_operation_fails() -> None:
+    limiter = ConcurrencyLimiter(1)
+
+    with pytest.raises(RuntimeError), limiter.slot():
+        raise RuntimeError("model unavailable")
+
+    with limiter.slot():
+        pass

@@ -4,15 +4,17 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from uaw.api.deps import get_services
-from uaw.api.ratelimit import rate_limited
+from uaw.api.ratelimit import ConcurrencyLimiter, rate_limited
 from uaw.api.security import RoleDep, ensure_repository_allowed
-from uaw.api.usage import ensure_within_budget, tracked
+from uaw.api.usage import reserved, tracked
+from uaw.config import Settings
 from uaw.connectors.github.url import InvalidRepositoryUrlError, parse_github_full_name
 from uaw.embeddings.errors import EmbeddingError
 from uaw.generation.answerer import Answer
 from uaw.generation.errors import GenerationError, GenerationRefusedError
 from uaw.retrieval.retriever import EmbeddingModelMismatchError, RepositoryNotIndexedError
 from uaw.services import Services
+from uaw.usage.meter import Provider
 
 router = APIRouter(prefix="/ask", tags=["ask"])
 
@@ -37,7 +39,10 @@ class AskRequest(BaseModel):
         404: {"description": "The repository has not been imported, or is still indexing."},
         409: {"description": "The repository must be imported again (embedding model changed)."},
         422: {"description": "Invalid request, or the model declined to answer."},
-        503: {"description": "Answers are disabled, or a model provider is unavailable."},
+        503: {
+            "description": "Answers are disabled, the server is busy (see Retry-After), "
+            "or a model provider is unavailable."
+        },
     },
 )
 async def ask(body: AskRequest, services: ServicesDep, request: Request, role: RoleDep) -> Answer:
@@ -59,11 +64,19 @@ async def ask(body: AskRequest, services: ServicesDep, request: Request, role: R
             status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Answers are disabled: an embedding and an Anthropic API key are required.",
         )
-    await ensure_within_budget(services, "voyage", "anthropic")
+    settings: Settings = request.app.state.settings
+    limiter: ConcurrencyLimiter = request.app.state.ask_limiter
+    estimates: dict[Provider, int] = {
+        "voyage": settings.query_reserved_embedding_tokens,
+        "anthropic": settings.ask_reserved_llm_tokens,
+    }
 
     try:
-        async with tracked(services, "ask", ref.full_name):
-            return await services.answerer.ask(ref, question)
+        # Usage is recorded (tracked) before the reservation is released, so the
+        # tokens are always counted by one or the other.
+        with limiter.slot():
+            async with reserved(services, estimates), tracked(services, "ask", ref.full_name):
+                return await services.answerer.ask(ref, question)
     except RepositoryNotIndexedError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except EmbeddingModelMismatchError as exc:

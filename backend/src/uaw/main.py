@@ -14,7 +14,7 @@ from fastapi import Depends, FastAPI
 from uaw import __version__
 from uaw.api import ask, health, imports, repositories, search
 from uaw.api.middleware import MaxBodySizeMiddleware, RequestContextMiddleware
-from uaw.api.ratelimit import build_rate_limiters
+from uaw.api.ratelimit import ConcurrencyLimiter, build_rate_limiters
 from uaw.api.security import authenticate, require_admin
 from uaw.config import Settings, get_settings
 from uaw.logging_config import configure_logging
@@ -43,6 +43,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="Universal AI Workspace", version=__version__, lifespan=lifespan)
     app.state.settings = settings
     app.state.rate_limiters = build_rate_limiters(settings)
+    app.state.ask_limiter = ConcurrencyLimiter(settings.max_concurrent_asks)
     # The last middleware added runs first: request IDs cover the 413 responses too.
     app.add_middleware(MaxBodySizeMiddleware, max_bytes=settings.max_request_body_kb * 1024)
     app.add_middleware(RequestContextMiddleware)

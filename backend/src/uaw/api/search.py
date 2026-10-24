@@ -6,7 +6,8 @@ from pydantic import BaseModel, Field
 from uaw.api.deps import get_services
 from uaw.api.ratelimit import rate_limited
 from uaw.api.security import RoleDep, ensure_repository_allowed
-from uaw.api.usage import ensure_within_budget, tracked
+from uaw.api.usage import reserved, tracked
+from uaw.config import Settings
 from uaw.connectors.github.url import InvalidRepositoryUrlError, parse_github_full_name
 from uaw.embeddings.errors import EmbeddingError
 from uaw.retrieval.retriever import (
@@ -15,6 +16,7 @@ from uaw.retrieval.retriever import (
     SearchResult,
 )
 from uaw.services import Services
+from uaw.usage.meter import Provider
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -62,10 +64,11 @@ async def search(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Search is disabled: no embedding API key is configured.",
         )
-    await ensure_within_budget(services, "voyage")
+    settings: Settings = request.app.state.settings
+    estimates: dict[Provider, int] = {"voyage": settings.query_reserved_embedding_tokens}
 
     try:
-        async with tracked(services, "search", ref.full_name):
+        async with reserved(services, estimates), tracked(services, "search", ref.full_name):
             return await services.retriever.search(ref, query, top_k=body.top_k)
     except RepositoryNotIndexedError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

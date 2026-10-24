@@ -5,10 +5,10 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Literal
 
-from sqlalchemy import func, insert, select
+from sqlalchemy import delete, func, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from uaw.storage.models import UsageRecordRow
+from uaw.storage.models import BudgetReservationRow, UsageRecordRow
 from uaw.usage.meter import ModelUsage, Provider
 
 Operation = Literal["import", "search", "ask"]
@@ -46,3 +46,39 @@ class UsageStore:
             func.coalesce(func.sum(UsageRecordRow.input_tokens + UsageRecordRow.output_tokens), 0)
         ).where(UsageRecordRow.provider == provider, UsageRecordRow.created_at >= since)
         return int((await self._session.execute(stmt)).scalar_one())
+
+    async def lock_budget(self, provider: Provider) -> None:
+        """Serialize budget checks for ``provider`` until the transaction ends, so that
+        two requests cannot both check, then both reserve."""
+        await self._session.execute(
+            select(func.pg_advisory_xact_lock(func.hashtext(f"uaw.budget.{provider}")))
+        )
+
+    async def reserved_tokens(self, provider: Provider, now: datetime) -> int:
+        """Tokens set aside by the operations in progress (unexpired reservations)."""
+        stmt = select(func.coalesce(func.sum(BudgetReservationRow.tokens), 0)).where(
+            BudgetReservationRow.provider == provider, BudgetReservationRow.expires_at > now
+        )
+        return int((await self._session.execute(stmt)).scalar_one())
+
+    async def add_reservation(
+        self, provider: Provider, tokens: int, expires_at: datetime
+    ) -> uuid.UUID:
+        reservation_id = uuid.uuid4()
+        await self._session.execute(
+            insert(BudgetReservationRow).values(
+                id=reservation_id, provider=provider, tokens=tokens, expires_at=expires_at
+            )
+        )
+        return reservation_id
+
+    async def delete_reservations(
+        self, ids: Sequence[uuid.UUID], *, expired_before: datetime
+    ) -> None:
+        """Delete the given reservations, and any that expired (left by a crash)."""
+        await self._session.execute(
+            delete(BudgetReservationRow).where(
+                BudgetReservationRow.id.in_(ids)
+                | (BudgetReservationRow.expires_at <= expired_before)
+            )
+        )

@@ -14,6 +14,8 @@ def test_defaults() -> None:
 def test_reads_environment_variables(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("API_KEY", "server-key")
+    monkeypatch.setenv("DAILY_EMBEDDING_TOKEN_BUDGET", "5000000")
+    monkeypatch.setenv("DAILY_LLM_TOKEN_BUDGET", "1000000")
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
 
     settings = Settings(_env_file=None)
@@ -29,6 +31,18 @@ def test_production_requires_an_api_key(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setenv("API_KEY", "")  # empty means "not set"
 
     with pytest.raises(ValidationError, match="API_KEY"):
+        Settings(_env_file=None)
+
+
+@pytest.mark.parametrize("missing", ["DAILY_EMBEDDING_TOKEN_BUDGET", "DAILY_LLM_TOKEN_BUDGET"])
+def test_production_requires_both_budgets(monkeypatch: pytest.MonkeyPatch, missing: str) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("API_KEY", "server-key")
+    monkeypatch.setenv("DAILY_EMBEDDING_TOKEN_BUDGET", "5000000")
+    monkeypatch.setenv("DAILY_LLM_TOKEN_BUDGET", "1000000")
+    monkeypatch.setenv(missing, "0")
+
+    with pytest.raises(ValidationError, match=missing):
         Settings(_env_file=None)
 
 

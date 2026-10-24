@@ -188,3 +188,20 @@ class UsageRecordRow(Base):
     requests: Mapped[int]
     input_tokens: Mapped[int] = mapped_column(BigInteger)
     output_tokens: Mapped[int] = mapped_column(BigInteger)
+
+
+class BudgetReservationRow(Base):
+    """Tokens set aside for an operation in progress, so that concurrent requests
+    cannot all pass the budget check before any of them has recorded its usage.
+    Deleted when the operation ends; ignored once expired (a crashed process)."""
+
+    __tablename__ = "budget_reservations"
+    __table_args__ = (
+        CheckConstraint("provider IN ('voyage', 'anthropic')", name="provider"),
+        CheckConstraint("tokens > 0", name="tokens_positive"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    provider: Mapped[str] = mapped_column(String(20))
+    tokens: Mapped[int] = mapped_column(BigInteger)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -130,8 +130,15 @@ This project is built incrementally. Only what is listed under *Implemented* wor
   - Cost control: Voyage and Claude report the tokens billed for each call to a meter
     held in a context variable, so concurrent operations never mix their counts. Each
     import, search and question saves its usage in `usage_records`, even when it fails
-    after being billed. Optional daily token budgets per provider refuse new requests
-    with a `429` until midnight UTC.
+    after being billed. Daily token budgets per provider (required in production)
+    refuse new requests with a `429` until midnight UTC.
+  - Budgets hold under concurrency: each question and search first reserves its
+    worst-case tokens, and the check-then-reserve runs under a PostgreSQL advisory
+    lock, so simultaneous requests can never pass together more than the budget (an
+    integration test fails without the lock). Reservations are released once the
+    usage is recorded, and expire on their own if the process crashes.
+  - At most `MAX_CONCURRENT_ASKS` questions run at a time; beyond, a `503` with
+    `Retry-After` is returned at once rather than queueing connections.
   - Observability: a request ID per request (`X-Request-ID`, reused from a proxy when
     safe), carried by every log line including background imports; one access log line
     per request with status and duration; JSON logs (`LOG_FORMAT=json`);

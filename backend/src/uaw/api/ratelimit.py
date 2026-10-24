@@ -8,7 +8,8 @@ address is the real one, not the proxy's.
 
 import math
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from typing import Literal
 
 from fastapi import HTTPException, Request, status
@@ -84,3 +85,29 @@ def rate_limited(name: LimitName) -> Callable[[Request], None]:
             )
 
     return dependency
+
+
+class ConcurrencyLimiter:
+    """At most ``limit`` operations at a time, all clients combined. An operation that
+    finds every slot taken is refused at once: queueing would only hold connections
+    open while the clients wait."""
+
+    def __init__(self, limit: int) -> None:
+        self._limit = limit
+        self._running = 0
+
+    @contextmanager
+    def slot(self, retry_after_seconds: int = 5) -> Iterator[None]:
+        # No await between the check and the increment: on one event loop, two
+        # requests cannot both take the last slot.
+        if self._running >= self._limit:
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="The server is busy answering other questions. Try again shortly.",
+                headers={"Retry-After": str(retry_after_seconds)},
+            )
+        self._running += 1
+        try:
+            yield
+        finally:
+            self._running -= 1
