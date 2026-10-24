@@ -11,7 +11,10 @@ citations the model cannot invent.**
 ![Claude](https://img.shields.io/badge/LLM-Claude-D97757)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-![A suggested question answered from the cache, then "See how this answer was built": the passages retrieved, their similarity, and which ones the answer cites](docs/images/demo.gif)
+![A question asked live: the passages are found, the answer is written as a labelled draft, the checked answer replaces it, then "See how this answer was built" shows each passage's relevance, similarity and whether it is cited](docs/images/demo.gif)
+
+<sub>A real answer from Claude Opus 5.5, recorded at its real pace except the search wait,
+shortened from 6.5 s (a slow reranker call that day; usually under a second).</sub>
 
 Import a public repository, ask *"How are expired tokens detected?"*, and get a Markdown
 answer where every `[S1]` links to the cited lines on GitHub, at the exact commit that was
