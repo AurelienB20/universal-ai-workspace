@@ -99,6 +99,11 @@ class Settings(BaseSettings):
     rate_limit_visitor_imports_per_day: int = Field(default=3, ge=0)
     # Visitor imports run one at a time; at most this many wait behind the running one.
     visitor_import_queue: int = Field(default=3, ge=0, le=50)
+    # Questions per visitor and per day about the repositories they imported, counted
+    # in memory. 0 = no limit. Questions about the DEMO_REPOSITORIES are not counted.
+    visitor_questions_per_day: int = Field(default=15, ge=0)
+    # How often expired accesses, and the repositories nobody reads any more, are deleted.
+    visitor_cleanup_interval_minutes: int = Field(default=60, gt=0)
 
     @property
     def visitor_daily_embedding_tokens(self) -> int:

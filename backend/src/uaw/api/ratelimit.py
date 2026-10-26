@@ -16,7 +16,7 @@ from fastapi import HTTPException, Request, status
 
 from uaw.config import Settings
 
-LimitName = Literal["imports", "visitor_imports", "search", "ask"]
+LimitName = Literal["imports", "visitor_imports", "search", "ask", "visitor_asks"]
 Clock = Callable[[], float]
 
 
@@ -61,6 +61,7 @@ def build_rate_limiters(settings: Settings) -> dict[LimitName, RateLimiter]:
         "visitor_imports": (settings.rate_limit_visitor_imports_per_day, 86_400),
         "search": (settings.rate_limit_search_per_minute, 60),
         "ask": (settings.rate_limit_ask_per_minute, 60),
+        "visitor_asks": (settings.visitor_questions_per_day, 86_400),
     }
     return {
         name: RateLimiter(limit, period)
@@ -78,18 +79,25 @@ def rate_limited(name: LimitName) -> Callable[[Request], None]:
     return dependency
 
 
-def enforce_rate_limit(request: Request, name: LimitName) -> None:
-    """Count one request against the ``name`` limit of the calling client; ``429``
-    once it is reached."""
+def enforce_rate_limit(
+    request: Request,
+    name: LimitName,
+    *,
+    client: str | None = None,
+    detail: str = "Too many requests. Try again later.",
+) -> None:
+    """Count one request against the ``name`` limit of ``client`` (by default, the
+    caller's address); ``429`` once it is reached."""
     limiter: RateLimiter | None = request.app.state.rate_limiters.get(name)
     if limiter is None:
         return
-    client = request.client.host if request.client else "unknown"
+    if client is None:
+        client = request.client.host if request.client else "unknown"
     wait = limiter.acquire(client)
     if wait > 0:
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many requests. Try again later.",
+            detail=detail,
             headers={"Retry-After": str(math.ceil(wait))},
         )
 
