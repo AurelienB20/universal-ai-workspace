@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 from uaw.api.deps import get_services
 from uaw.api.ratelimit import rate_limited
-from uaw.api.security import RoleDep, ensure_repository_allowed
+from uaw.api.security import CallerDep, ensure_repository_allowed
 from uaw.api.usage import reserved, tracked
 from uaw.config import Settings
 from uaw.connectors.github.url import InvalidRepositoryUrlError, parse_github_full_name
@@ -45,7 +45,7 @@ class SearchRequest(BaseModel):
     },
 )
 async def search(
-    body: SearchRequest, services: ServicesDep, request: Request, role: RoleDep
+    body: SearchRequest, services: ServicesDep, request: Request, caller: CallerDep
 ) -> SearchResult:
     """Return the passages of an imported repository closest to the query, best first.
 
@@ -55,7 +55,7 @@ async def search(
         ref = parse_github_full_name(body.repository)
     except InvalidRepositoryUrlError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
-    ensure_repository_allowed(request, role, ref)
+    await ensure_repository_allowed(request, services, caller, ref)
     query = body.query.strip()
     if not query:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail="The query is empty.")
