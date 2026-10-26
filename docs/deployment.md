@@ -82,6 +82,29 @@ curl -X PUT http://127.0.0.1:8000/repositories/pallets/itsdangerous/suggestions 
 Repeat with `"language": "fr"` and French questions. Suggestions belong to a snapshot:
 after re-importing a repository, generate them again.
 
+### Imports by visitors (optional)
+
+With `PUBLIC_IMPORTS_ENABLED=true` in `.env`, visitors can import their own public
+repository (see [ADR 0014](adr/0014-public-imports-private-capped-temporary.md)). Each one
+is private to its visitor and deleted after `VISITOR_ACCESS_HOURS`. Raise
+`DAILY_EMBEDDING_TOKEN_BUDGET` first: it must exceed what visitors can spend in a day
+(`VISITOR_IMPORTS_PER_DAY` × `VISITOR_MAX_IMPORT_TOKENS`), or the API refuses to start.
+
+| Setting | Default | |
+|---|---|---|
+| `VISITOR_ACCESS_HOURS` | 24 | then the repository is deleted, unless another visitor still reads it |
+| `VISITOR_MAX_REPO_SIZE_MB`, `VISITOR_MAX_FILES` | 20, 300 | stricter than the admin's limits |
+| `VISITOR_MAX_IMPORT_TOKENS` | 400,000 | estimated before any is spent (about 0.07 USD) |
+| `VISITOR_IMPORTS_PER_VISITOR_PER_DAY` | 2 | counted in the database |
+| `VISITOR_IMPORTS_PER_DAY` | 20 | all visitors, counted in the database |
+| `RATE_LIMIT_VISITOR_IMPORTS_PER_DAY` | 3 | per address, in memory |
+| `VISITOR_IMPORT_QUEUE` | 3 | imports waiting behind the running one |
+| `VISITOR_QUESTIONS_PER_DAY` | 15 | per visitor, about their own repositories |
+
+To switch them off again, set `PUBLIC_IMPORTS_ENABLED=false` and restart the API and the
+web server (`docker compose -f docker-compose.prod.yml up -d --wait`): the import panel
+disappears, and the repositories already imported still expire on time.
+
 ## 5. Backups
 
 ```bash
