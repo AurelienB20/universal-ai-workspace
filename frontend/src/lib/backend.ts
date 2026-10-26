@@ -5,8 +5,16 @@ import "server-only";
 // The browser never talks to FastAPI directly: the API key stays on this server,
 // and there is no CORS to configure. The client address is forwarded so that the
 // backend rate limits each user, not this server.
+//
+// Each visitor also gets an anonymous identifier: a random UUID, kept in an HttpOnly
+// cookie and sent to the backend as X-Visitor-Id. With the demo key, the backend shows
+// each visitor the repositories they imported, and nobody else's.
 
 export const MAX_BODY_BYTES = 16 * 1024;
+export const VISITOR_COOKIE = "uaw_visitor";
+// Longer than any access to an imported repository (24 h by default).
+const VISITOR_COOKIE_MAX_AGE_SECONDS = 30 * 24 * 3600;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Answers take ~10 s with Claude Opus; the backend's own LLM timeout is 120 s.
 const TIMEOUT_MS = 150_000;
 
@@ -35,6 +43,22 @@ export function clientAddress(headers: Headers): string | undefined {
   return entries.at(-1);
 }
 
+/** The visitor identifier in the request's cookies, or null if absent or malformed. */
+export function visitorId(headers: Headers): string | null {
+  for (const part of (headers.get("cookie") ?? "").split(";")) {
+    const [name, ...rest] = part.trim().split("=");
+    if (name !== VISITOR_COOKIE) continue;
+    const value = rest.join("=");
+    return UUID.test(value) ? value.toLowerCase() : null;
+  }
+  return null;
+}
+
+function visitorCookie(id: string): string {
+  // Secure: browsers still accept it on http://localhost, a secure context.
+  return `${VISITOR_COOKIE}=${id}; Path=/; Max-Age=${VISITOR_COOKIE_MAX_AGE_SECONDS}; HttpOnly; Secure; SameSite=Lax`;
+}
+
 function jsonError(status: number, detail: string): Response {
   return Response.json({ detail }, { status });
 }
@@ -54,7 +78,7 @@ export async function forward(
   const { response } = sent;
   return new Response(await response.text(), {
     status: response.status,
-    headers: passedHeaders(response),
+    headers: passedHeaders(sent),
   });
 }
 
@@ -72,7 +96,7 @@ export async function forwardStream(
   const sent = await send(request, path, config, fetchImpl, "text/event-stream", request.signal);
   if ("error" in sent) return sent.error;
   const { response } = sent;
-  const headers = passedHeaders(response);
+  const headers = passedHeaders(sent);
   if (!response.ok || !headers.get("content-type")?.startsWith("text/event-stream")) {
     // An error found before the answer started: JSON, as with ``forward``.
     return new Response(await response.text(), { status: response.status, headers });
@@ -83,8 +107,13 @@ export async function forwardStream(
   return new Response(response.body, { status: response.status, headers });
 }
 
-// The backend's response, or the error to return when there is none.
-type Sent = { response: Response } | { error: Response };
+// The backend's response (and the visitor identifier created for this request, if
+// the browser had none), or the error to return when there is none.
+interface Received {
+  response: Response;
+  newVisitor: string | null;
+}
+type Sent = Received | { error: Response };
 
 async function send(
   request: Request,
@@ -107,6 +136,9 @@ async function send(
   if (config.apiKey) headers.set("x-api-key", config.apiKey);
   const client = clientAddress(request.headers);
   if (client) headers.set("x-forwarded-for", client);
+  const knownVisitor = visitorId(request.headers);
+  const visitor = knownVisitor ?? crypto.randomUUID();
+  headers.set("x-visitor-id", visitor);
 
   const timeout = AbortSignal.timeout(TIMEOUT_MS);
   try {
@@ -117,13 +149,13 @@ async function send(
       cache: "no-store",
       signal: clientSignal ? AbortSignal.any([clientSignal, timeout]) : timeout,
     });
-    return { response };
+    return { response, newVisitor: knownVisitor === null ? visitor : null };
   } catch {
     return { error: jsonError(502, "The backend is unreachable.") };
   }
 }
 
-function passedHeaders(response: Response): Headers {
+function passedHeaders({ response, newVisitor }: Received): Headers {
   const passed = new Headers({
     "content-type": response.headers.get("content-type") ?? "application/json",
   });
@@ -131,6 +163,7 @@ function passedHeaders(response: Response): Headers {
     const value = response.headers.get(name);
     if (value) passed.set(name, value);
   }
+  if (newVisitor) passed.append("set-cookie", visitorCookie(newVisitor));
   return passed;
 }
 
@@ -141,6 +174,14 @@ function passedHeaders(response: Response): Headers {
  */
 export function importsEnabled(env: Record<string, string | undefined> = process.env): boolean {
   return env.IMPORTS_ENABLED?.trim().toLowerCase() !== "false";
+}
+
+/**
+ * Whether imports are those of visitors of a public demo (PUBLIC_IMPORTS_ENABLED=true,
+ * as for the backend): each one is private to its visitor, and expires.
+ */
+export function publicImports(env: Record<string, string | undefined> = process.env): boolean {
+  return env.PUBLIC_IMPORTS_ENABLED?.trim().toLowerCase() === "true";
 }
 
 export function notFound(): Response {

@@ -25,6 +25,10 @@ const fr = {
   noRepositories: "Aucun dépôt n'est encore indexé.",
   repositoryMeta: (files: number, commit: string) => `${files} fichiers · commit ${commit}`,
   importHeading: "Importer un autre dépôt",
+  publicImportHeading: "Importer votre propre dépôt",
+  publicImportNotice:
+    "Dépôts GitHub publics de taille modeste, quelques imports par jour. Vous seul voyez le dépôt importé, et il est supprimé automatiquement : la durée restante s'affiche dans la liste.",
+  ownRepository: (left: string) => `Votre dépôt · supprimé dans ${left}`,
   repoLabel: "URL du dépôt GitHub",
   importButton: "Importer",
   importing: "Import en cours…",
@@ -94,6 +98,10 @@ const fr = {
     tooLarge: "Requête trop volumineuse.",
     tooMany: (wait: string | null) =>
       `Trop de requêtes, ou budget quotidien atteint.${wait ? ` Réessayez dans ${wait}.` : ""}`,
+    importLimit: (wait: string | null) =>
+      `Limite d'imports atteinte pour aujourd'hui.${wait ? ` Réessayez dans ${wait}.` : ""}`,
+    importsBusy: (wait: string | null) =>
+      `D'autres imports sont en cours.${wait ? ` Réessayez dans ${wait}.` : ""}`,
     backendDown: "Le backend est injoignable.",
     busy: (wait: string | null) =>
       `Le serveur répond déjà à d'autres questions.${wait ? ` Réessayez dans ${wait}.` : ""}`,
@@ -132,6 +140,10 @@ const en: Messages = {
   noRepositories: "No repository is indexed yet.",
   repositoryMeta: (files, commit) => `${files} files · commit ${commit}`,
   importHeading: "Import another repository",
+  publicImportHeading: "Import your own repository",
+  publicImportNotice:
+    "Public GitHub repositories of modest size, a few imports a day. Only you see the imported repository, and it is deleted automatically: the time left shows in the list.",
+  ownRepository: (left) => `Your repository · deleted in ${left}`,
   repoLabel: "GitHub repository URL",
   importButton: "Import",
   importing: "Importing…",
@@ -197,6 +209,8 @@ const en: Messages = {
     refused: "The question could not be processed.",
     tooLarge: "Request too large.",
     tooMany: (wait) => `Too many requests, or daily budget reached.${wait ? ` Try again in ${wait}.` : ""}`,
+    importLimit: (wait) => `Import limit reached for today.${wait ? ` Try again in ${wait}.` : ""}`,
+    importsBusy: (wait) => `Other imports are in progress.${wait ? ` Try again in ${wait}.` : ""}`,
     backendDown: "The backend is unreachable.",
     busy: (wait) =>
       `The server is already answering other questions.${wait ? ` Try again in ${wait}.` : ""}`,

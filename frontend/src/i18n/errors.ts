@@ -21,16 +21,17 @@ export function errorMessage(error: unknown, t: Messages, action: "import" | "as
     case 422:
       return action === "import" ? t.errors.invalidUrl : t.errors.refused;
     case 429:
-      return t.errors.tooMany(
+      return (action === "import" ? t.errors.importLimit : t.errors.tooMany)(
         error.retryAfterSeconds === null ? null : t.duration(error.retryAfterSeconds),
       );
     case 502:
       return t.errors.backendDown;
     case 503:
-      // With Retry-After: every answer slot is taken, it frees up within seconds.
-      return error.retryAfterSeconds === null
-        ? t.errors.unavailable
-        : t.errors.busy(t.duration(error.retryAfterSeconds));
+      // With Retry-After: every answer slot (or the import queue) is taken, for now.
+      if (error.retryAfterSeconds === null) return t.errors.unavailable;
+      return (action === "import" ? t.errors.importsBusy : t.errors.busy)(
+        t.duration(error.retryAfterSeconds),
+      );
     default:
       return t.errors.unexpected(error.status);
   }

@@ -81,6 +81,8 @@ export interface RepositorySummary {
   indexed_at: string;
   documents_count: number;
   chunks_count: number;
+  // End of the visitor's access to a repository they imported; null for the others.
+  expires_at: string | null;
 }
 
 // backend/src/uaw/storage/cached_answers.py and api/repositories.py
@@ -100,4 +102,6 @@ export interface Suggestions {
 // app/api/config/route.ts
 export interface InterfaceConfig {
   importsEnabled: boolean;
+  // Imports by visitors of a public demo: private to each visitor, and temporary.
+  publicImports: boolean;
 }

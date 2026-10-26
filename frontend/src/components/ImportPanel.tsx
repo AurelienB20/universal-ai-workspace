@@ -14,11 +14,13 @@ function isActive(job: ImportJob | null): boolean {
 }
 
 interface Props {
+  /** Imports by a visitor of a public demo: private, temporary and limited. */
+  visitor: boolean;
   /** Called with "owner/name" once the repository is searchable, null when reset. */
   onReady: (repository: string | null) => void;
 }
 
-export function ImportPanel({ onReady }: Props) {
+export function ImportPanel({ visitor, onReady }: Props) {
   const { t } = useLanguage();
   const [url, setUrl] = useState("");
   const [job, setJob] = useState<ImportJob | null>(null);
@@ -70,7 +72,8 @@ export function ImportPanel({ onReady }: Props) {
 
   return (
     <section className="card">
-      <h2 className="card-title">{t.importHeading}</h2>
+      <h2 className="card-title">{visitor ? t.publicImportHeading : t.importHeading}</h2>
+      {visitor && <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">{t.publicImportNotice}</p>}
 
       <form onSubmit={submit} className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <label className="flex flex-1 flex-col gap-1 text-sm">

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { getConfig, listRepositories } from "@/lib/api";
-import type { RepositorySummary } from "@/lib/types";
+import type { InterfaceConfig, RepositorySummary } from "@/lib/types";
 
 import { AskPanel } from "./AskPanel";
 import { ImportPanel } from "./ImportPanel";
@@ -11,7 +11,10 @@ import { RepositoryPicker } from "./RepositoryPicker";
 
 /** The whole flow: choose (or import) a repository, then ask questions about it. */
 export function Workspace() {
-  const [importsEnabled, setImportsEnabled] = useState(false);
+  const [config, setConfig] = useState<InterfaceConfig>({
+    importsEnabled: false,
+    publicImports: false,
+  });
   const [repositories, setRepositories] = useState<RepositorySummary[] | null>(null);
   const [listError, setListError] = useState<unknown>(null);
   // "owner/name" of the repository being questioned.
@@ -33,8 +36,8 @@ export function Workspace() {
     let cancelled = false;
     void (async () => {
       // A demo without imports is the safe default if the config cannot be read.
-      const config = await getConfig().catch(() => ({ importsEnabled: false }));
-      if (!cancelled) setImportsEnabled(config.importsEnabled);
+      const read = await getConfig().catch(() => ({ importsEnabled: false, publicImports: false }));
+      if (!cancelled) setConfig(read);
       const items = await loadRepositories();
       // One repository only (a typical demo): select it directly.
       if (!cancelled && items?.length === 1) setRepository(items[0].repository);
@@ -61,7 +64,9 @@ export function Workspace() {
         selected={repository}
         onSelect={setRepository}
       />
-      {importsEnabled && <ImportPanel onReady={onImported} />}
+      {config.importsEnabled && (
+        <ImportPanel visitor={config.publicImports} onReady={onImported} />
+      )}
       {/* Keyed: changing repository starts a fresh conversation. */}
       {repository && <AskPanel key={repository} repository={repository} />}
     </div>

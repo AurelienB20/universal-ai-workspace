@@ -12,6 +12,10 @@ interface Props {
   onSelect: (repository: string) => void;
 }
 
+function secondsUntil(date: string): number {
+  return Math.max(0, Math.round((new Date(date).getTime() - Date.now()) / 1000));
+}
+
 /** The repositories this interface can question (GET /repositories). */
 export function RepositoryPicker({ repositories, error, selected, onSelect }: Props) {
   const { t } = useLanguage();
@@ -49,6 +53,11 @@ export function RepositoryPicker({ repositories, error, selected, onSelect }: Pr
                   <span className="text-xs text-zinc-500">
                     {t.repositoryMeta(item.documents_count, item.commit_sha.slice(0, 7))}
                   </span>
+                  {item.expires_at && (
+                    <span className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                      {t.ownRepository(t.duration(secondsUntil(item.expires_at)))}
+                    </span>
+                  )}
                 </button>
               </li>
             );
