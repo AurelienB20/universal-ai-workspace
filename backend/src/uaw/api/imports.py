@@ -142,6 +142,8 @@ async def _queue_for_visitor(
     """
     settings: Settings = request.app.state.settings
     jobs = JobStore(session)
+    # Also held by the cleanup: a repository is never deleted while access is granted.
+    await jobs.lock_visitor_imports()
     access = timedelta(hours=settings.visitor_access_hours)
     done = await jobs.latest_succeeded(ref.full_name)
     if done is not None:
@@ -149,7 +151,6 @@ async def _queue_for_visitor(
         return done, False
 
     enforce_rate_limit(request, "visitor_imports")
-    await jobs.lock_visitor_imports()
     now = datetime.now(UTC)
     midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
     until_tomorrow = {"Retry-After": str(int((midnight + timedelta(days=1) - now).total_seconds()))}

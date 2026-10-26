@@ -5,13 +5,14 @@ Expiry is compared with the database clock (``now()``), the same clock that sets
 """
 
 import uuid
+from collections.abc import Collection
 from datetime import datetime, timedelta
 
-from sqlalchemy import String, exists, func, literal, select
+from sqlalchemy import ColumnElement, String, delete, exists, func, literal, or_, select, true
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from uaw.storage.models import VisitorRepositoryRow
+from uaw.storage.models import IngestionJobRow, RepositoryRow, VisitorRepositoryRow
 
 
 class VisitorAccessStore:
@@ -79,3 +80,39 @@ class VisitorAccessStore:
             )
         )
         return bool((await self._session.execute(stmt)).scalar_one())
+
+    async def delete_expired(self) -> int:
+        """Delete the accesses that ended. Returns how many."""
+        result = await self._session.execute(
+            delete(VisitorRepositoryRow)
+            .where(VisitorRepositoryRow.expires_at <= func.now())
+            .returning(VisitorRepositoryRow.visitor_id)
+        )
+        return len(result.all())
+
+    async def abandoned_repositories(self, keep: Collection[str]) -> list[str]:
+        """Repositories that only visitors ever imported and that no visitor may read
+        any more (lowercase "owner/name"), except those in ``keep``.
+
+        A repository with no import job at all (imported before visitors existed, or
+        by a script) is never returned.
+        """
+        stmt = select(RepositoryRow.key).where(
+            RepositoryRow.key.not_in(keep) if keep else true(),
+            _imports_of_repository(IngestionJobRow.visitor_id.is_not(None)),
+            ~_imports_of_repository(IngestionJobRow.visitor_id.is_(None)),
+            ~exists().where(VisitorRepositoryRow.repository_key == RepositoryRow.key),
+        )
+        return list((await self._session.scalars(stmt)).all())
+
+
+def _imports_of_repository(condition: ColumnElement[bool]) -> ColumnElement[bool]:
+    """Whether the repository has an import job matching ``condition``: asked for by
+    its name, or by an older name GitHub redirected to it."""
+    return exists().where(
+        or_(
+            IngestionJobRow.repository_key == RepositoryRow.key,
+            func.lower(IngestionJobRow.repository) == RepositoryRow.key,
+        ),
+        condition,
+    )

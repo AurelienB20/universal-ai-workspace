@@ -1,8 +1,11 @@
 """Composition root: builds the long-lived objects the API needs, and releases them."""
 
+import asyncio
+import contextlib
 import logging
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
+from datetime import timedelta
 
 import httpx2 as httpx
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -18,6 +21,7 @@ from uaw.generation.answerer import Answerer
 from uaw.generation.claude import ClaudeAnswerModel, create_anthropic_client
 from uaw.ingestion.pipeline import ImportPolicy, IngestionPipeline
 from uaw.ingestion.runner import IngestionRunner
+from uaw.maintenance import remove_abandoned_repositories, run_periodically
 from uaw.retrieval.retriever import RetrievalOptions, Retriever
 from uaw.storage.db import create_engine, create_session_factory
 from uaw.storage.jobs import JobStore
@@ -52,6 +56,7 @@ async def build_services(settings: Settings, stack: AsyncExitStack) -> Services:
         interrupted = await JobStore(session).fail_interrupted()
     if interrupted:
         logger.warning("Marked %d interrupted import jobs as failed", interrupted)
+    _start_visitor_cleanup(settings, session_factory, stack)
 
     usage = UsageTracker(
         session_factory,
@@ -119,6 +124,28 @@ async def build_services(settings: Settings, stack: AsyncExitStack) -> Services:
         answerer=_build_answerer(settings, stack, retriever),
         usage=usage,
     )
+
+
+def _start_visitor_cleanup(
+    settings: Settings, session_factory: async_sessionmaker[AsyncSession], stack: AsyncExitStack
+) -> None:
+    """Delete the repositories visitors no longer read, now and then periodically.
+    Runs even with public imports disabled, so that the last ones still expire."""
+
+    async def cleanup() -> None:
+        await remove_abandoned_repositories(session_factory, settings.demo_repositories)
+
+    task = asyncio.create_task(
+        run_periodically(cleanup, timedelta(minutes=settings.visitor_cleanup_interval_minutes)),
+        name="visitor-cleanup",
+    )
+
+    async def stop() -> None:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+    stack.push_async_callback(stop)
 
 
 def _build_answerer(

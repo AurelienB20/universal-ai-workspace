@@ -9,8 +9,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from uaw.api.deps import get_services
-from uaw.api.ratelimit import ConcurrencyLimiter, rate_limited
-from uaw.api.security import Caller, CallerDep, ensure_repository_allowed
+from uaw.api.ratelimit import ConcurrencyLimiter, enforce_rate_limit, rate_limited
+from uaw.api.security import Caller, CallerDep, ensure_repository_allowed, is_allowed
 from uaw.api.usage import reserved, tracked
 from uaw.config import Settings
 from uaw.connectors.github.url import (
@@ -113,6 +113,16 @@ async def _checked(
     question = body.question.strip()
     if not question:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail="The question is empty.")
+    settings: Settings = request.app.state.settings
+    if caller.visitor_id is not None and not is_allowed(settings, caller.role, ref.full_name):
+        # A repository the visitor imported: questions about it have a daily quota.
+        enforce_rate_limit(
+            request,
+            "visitor_asks",
+            client=f"visitor:{caller.visitor_id}",
+            detail=f"You can ask {settings.visitor_questions_per_day} questions a day about "
+            "the repositories you imported. Try again tomorrow.",
+        )
     return ref, question
 
 

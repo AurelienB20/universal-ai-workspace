@@ -47,6 +47,7 @@ async def client(
         api_key=SecretStr("admin-key"),
         demo_api_key=SecretStr("demo-key"),
         demo_repositories="octo/demo",
+        visitor_questions_per_day=2,
     )
     app = create_app(settings)
     # No providers: a request that passes the access check ends with a 503.
@@ -152,3 +153,23 @@ async def test_granting_again_extends_but_never_shortens(
         assert (await store.repositories(ANN))["ann/mine"] == first
         await store.grant(ANN, "ann/mine", 2 * DAY)
         assert (await store.repositories(ANN))["ann/mine"] == first + DAY
+
+
+@pytest.mark.usefixtures("repositories")
+async def test_questions_about_their_own_repositories_have_a_daily_quota(
+    client: httpx.AsyncClient,
+) -> None:
+    async def ask(repository: str, visitor_id: uuid.UUID = ANN) -> httpx.Response:
+        body = {"repository": repository, "question": "Where?"}
+        return await client.post("/ask", json=body, headers=demo(visitor_id))
+
+    # 503: past the checks (no provider is configured in these tests).
+    assert [(await ask("ann/mine")).status_code for _ in range(2)] == [503, 503]
+    refused = await ask("ann/mine")
+    assert refused.status_code == 429
+    assert refused.json()["detail"] == (
+        "You can ask 2 questions a day about the repositories you imported. Try again tomorrow."
+    )
+    # Questions about the demo's repositories are not counted, nor other visitors'.
+    assert (await ask("octo/demo")).status_code == 503
+    assert (await ask("bob/theirs", BOB)).status_code == 503
