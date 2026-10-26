@@ -8,18 +8,24 @@ Transactions are deliberately short:
    and the oldest snapshots of the repository are deleted in the same transaction.
 If anything fails, the incomplete snapshot is deleted and the job records a
 user-facing error message.
+
+An import can carry stricter limits (visitors of the public demo): smaller
+repositories, and an embedding cost estimated and checked before any is spent.
 """
 
 import asyncio
 import logging
+import math
 import uuid
+from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from uaw.chunking.chunker import chunk_document
 from uaw.chunking.lines import ChunkingConfig
-from uaw.connectors.github.connector import FetchedRepository
+from uaw.connectors.github.connector import FetchedRepository, ImportLimits
 from uaw.connectors.github.errors import GitHubConnectorError
 from uaw.connectors.github.url import GitHubRepoRef
 from uaw.domain.chunks import Chunk
@@ -29,17 +35,43 @@ from uaw.embeddings.base import Embedder, embedding_text
 from uaw.embeddings.errors import EmbeddingError
 from uaw.storage.jobs import JobStore
 from uaw.storage.store import SnapshotStatus, SnapshotStore
+from uaw.storage.visitors import VisitorAccessStore
 
 logger = logging.getLogger(__name__)
 
+# Characters per embedding token assumed by the estimate. Measured with voyage-code-3:
+# about 4 on Flask and itsdangerous; 3 makes the estimate err on the high side.
+CHARS_PER_TOKEN = 3
+
+
+class ImportTooCostlyError(Exception):
+    """The repository would need more embedding tokens than the import allows."""
+
+
 # Errors whose message is written for end users. Anything else is a bug or an
 # infrastructure failure: it is logged in full, and users get a generic message.
-USER_FACING_ERRORS = (GitHubConnectorError, EmbeddingError)
+USER_FACING_ERRORS = (GitHubConnectorError, EmbeddingError, ImportTooCostlyError)
 INTERNAL_ERROR_MESSAGE = "The import failed because of an internal error."
 
 
+@dataclass(frozen=True)
+class ImportPolicy:
+    """Limits of one import, when stricter than the server's defaults."""
+
+    # None: the source's own limits.
+    limits: ImportLimits | None = None
+    # Estimated embedding tokens, checked before any is spent. None: no cap.
+    max_embedding_tokens: int | None = None
+
+
+def estimate_embedding_tokens(texts: Iterable[str]) -> int:
+    return math.ceil(sum(len(text) for text in texts) / CHARS_PER_TOKEN)
+
+
 class RepositorySource(Protocol):
-    async def fetch(self, ref: GitHubRepoRef) -> FetchedRepository: ...
+    async def fetch(
+        self, ref: GitHubRepoRef, limits: ImportLimits | None = None
+    ) -> FetchedRepository: ...
 
 
 class IngestionPipeline:
@@ -60,17 +92,25 @@ class IngestionPipeline:
         self._embed_batch_size = embed_batch_size
         self._keep_snapshots = keep_snapshots
 
-    async def run(self, job_id: uuid.UUID, ref: GitHubRepoRef) -> None:
+    async def run(
+        self, job_id: uuid.UUID, ref: GitHubRepoRef, policy: ImportPolicy | None = None
+    ) -> None:
         """Run one import to completion. Failures are recorded on the job, not raised."""
+        policy = policy or ImportPolicy()
         snapshot_id: uuid.UUID | None = None
         try:
             async with self._sessions.begin() as session:
                 await JobStore(session).mark_running(job_id)
 
-            fetched = await self._source.fetch(ref)
+            fetched = await self._source.fetch(ref, policy.limits)
             async with self._sessions.begin() as session:
                 jobs = JobStore(session)
                 await jobs.set_repository(job_id, fetched.info.ref.full_name)
+                # GitHub redirects a renamed repository to its new name: visitors who
+                # asked for the old one get access to the new one too.
+                await VisitorAccessStore(session).extend_to(
+                    ref.full_name, fetched.info.ref.full_name
+                )
                 await jobs.set_stage(
                     job_id,
                     JobStage.CHUNKING,
@@ -85,6 +125,7 @@ class IngestionPipeline:
 
             # Chunking is CPU-bound: keep it off the event loop.
             chunked = await asyncio.to_thread(_chunk_all, fetched.documents, self._chunking)
+            _check_cost(chunked, policy.max_embedding_tokens)
             snapshot_id, pending = await self._save_chunks(job_id, fetched, chunked)
             await self._embed(job_id, pending)
 
@@ -170,6 +211,19 @@ class IngestionPipeline:
             # Typically the database itself is down. The job stays "running" and is
             # marked as interrupted at the next startup.
             logger.exception("Could not record the failure of import job %s", job_id)
+
+
+def _check_cost(chunked: list[tuple[SourceDocument, list[Chunk]]], max_tokens: int | None) -> None:
+    if max_tokens is None:
+        return
+    estimate = estimate_embedding_tokens(
+        embedding_text(chunk) for _, chunks in chunked for chunk in chunks
+    )
+    if estimate > max_tokens:
+        raise ImportTooCostlyError(
+            f"This repository is too large for the public demo: indexing it would take "
+            f"about {estimate:,} tokens, and the limit is {max_tokens:,}."
+        )
 
 
 def _chunk_all(

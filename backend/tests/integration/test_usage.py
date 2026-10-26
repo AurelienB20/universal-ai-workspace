@@ -16,6 +16,7 @@ from uaw.config import Settings
 from uaw.connectors.github.url import GitHubRepoRef
 from uaw.generation.answerer import Answerer
 from uaw.generation.claude import Generation
+from uaw.ingestion.pipeline import ImportPolicy
 from uaw.ingestion.runner import IngestionRunner
 from uaw.main import create_app
 from uaw.retrieval.retriever import Retriever
@@ -172,7 +173,9 @@ async def test_ask_records_usage_then_is_refused_once_the_budget_is_spent(
 
 
 class BilledPipeline:
-    async def run(self, job_id: uuid.UUID, ref: GitHubRepoRef) -> None:
+    async def run(
+        self, job_id: uuid.UUID, ref: GitHubRepoRef, policy: ImportPolicy | None = None
+    ) -> None:
         record_usage("voyage", "voyage-code-3", input_tokens=500)
         record_usage("voyage", "voyage-code-3", input_tokens=300)
 

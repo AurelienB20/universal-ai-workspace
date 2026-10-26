@@ -15,7 +15,7 @@ from uaw import __version__
 from uaw.api import ask, health, imports, repositories, search
 from uaw.api.middleware import MaxBodySizeMiddleware, RequestContextMiddleware
 from uaw.api.ratelimit import ConcurrencyLimiter, build_rate_limiters
-from uaw.api.security import authenticate, require_admin
+from uaw.api.security import authenticate
 from uaw.config import Settings, get_settings
 from uaw.logging_config import configure_logging
 from uaw.services import build_services
@@ -49,11 +49,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(RequestContextMiddleware)
 
     app.include_router(health.router)
-    # Admin only: imports spend the embedding budget on any public repository.
+    # Admin, or visitors of the public demo when PUBLIC_IMPORTS_ENABLED (see imports.py).
     app.include_router(
-        imports.router,
-        dependencies=[Depends(require_admin)],
-        responses={**PROTECTED_RESPONSES, 403: {"description": "Admin key required."}},
+        imports.router, dependencies=[Depends(authenticate)], responses=PROTECTED_RESPONSES
     )
     # Demo or admin; a demo key only reaches the DEMO_REPOSITORIES.
     for router in (repositories.router, search.router, ask.router):

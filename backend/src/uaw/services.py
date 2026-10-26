@@ -8,11 +8,15 @@ import httpx2 as httpx
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from uaw.config import Settings
-from uaw.connectors.github.connector import build_github_connector, create_github_http_client
+from uaw.connectors.github.connector import (
+    ImportLimits,
+    build_github_connector,
+    create_github_http_client,
+)
 from uaw.embeddings.voyage import VoyageEmbedder, VoyageReranker, create_voyage_http_client
 from uaw.generation.answerer import Answerer
 from uaw.generation.claude import ClaudeAnswerModel, create_anthropic_client
-from uaw.ingestion.pipeline import IngestionPipeline
+from uaw.ingestion.pipeline import ImportPolicy, IngestionPipeline
 from uaw.ingestion.runner import IngestionRunner
 from uaw.retrieval.retriever import RetrievalOptions, Retriever
 from uaw.storage.db import create_engine, create_session_factory
@@ -87,7 +91,15 @@ async def build_services(settings: Settings, stack: AsyncExitStack) -> Services:
         embed_batch_size=settings.embedding_batch_size,
         keep_snapshots=settings.keep_snapshots,
     )
-    runner = IngestionRunner(pipeline, max_concurrent=settings.max_concurrent_imports, usage=usage)
+    runner = IngestionRunner(
+        pipeline,
+        max_concurrent=settings.max_concurrent_imports,
+        usage=usage,
+        visitor_policy=ImportPolicy(
+            limits=ImportLimits.for_visitors(settings),
+            max_embedding_tokens=settings.visitor_max_import_tokens,
+        ),
+    )
     stack.push_async_callback(runner.shutdown)
     retriever = Retriever(
         session_factory,

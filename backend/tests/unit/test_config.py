@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 from pydantic import ValidationError
 
@@ -106,3 +108,26 @@ def test_reranking_adds_to_the_voyage_reservation() -> None:
     assert with_reranker.query_reserved_voyage_tokens == (
         with_reranker.query_reserved_embedding_tokens + with_reranker.rerank_reserved_tokens
     )
+
+
+def test_public_imports_require_a_demo_key() -> None:
+    with pytest.raises(ValidationError, match="PUBLIC_IMPORTS_ENABLED requires DEMO_API_KEY"):
+        Settings(_env_file=None, public_imports_enabled=True, api_key="admin")
+
+
+def test_visitor_imports_must_leave_room_in_the_embedding_budget() -> None:
+    keys: dict[str, Any] = {
+        "api_key": "admin",
+        "demo_api_key": "demo",
+        "public_imports_enabled": True,
+    }
+    # 20 imports x 400,000 tokens = 8,000,000 tokens a day at most.
+    with pytest.raises(ValidationError, match=r"must exceed what visitor imports"):
+        Settings(_env_file=None, daily_embedding_token_budget=8_000_000, **keys)
+
+    settings = Settings(_env_file=None, daily_embedding_token_budget=13_000_000, **keys)
+    assert settings.visitor_daily_embedding_tokens == 8_000_000
+
+
+def test_public_imports_are_off_by_default() -> None:
+    assert Settings(_env_file=None).public_imports_enabled is False

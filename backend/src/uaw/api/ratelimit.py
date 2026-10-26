@@ -16,7 +16,7 @@ from fastapi import HTTPException, Request, status
 
 from uaw.config import Settings
 
-LimitName = Literal["imports", "search", "ask"]
+LimitName = Literal["imports", "visitor_imports", "search", "ask"]
 Clock = Callable[[], float]
 
 
@@ -58,6 +58,7 @@ class RateLimiter:
 def build_rate_limiters(settings: Settings) -> dict[LimitName, RateLimiter]:
     configured: dict[LimitName, tuple[int, float]] = {
         "imports": (settings.rate_limit_imports_per_hour, 3600),
+        "visitor_imports": (settings.rate_limit_visitor_imports_per_day, 86_400),
         "search": (settings.rate_limit_search_per_minute, 60),
         "ask": (settings.rate_limit_ask_per_minute, 60),
     }
@@ -72,19 +73,25 @@ def rate_limited(name: LimitName) -> Callable[[Request], None]:
     """Route dependency enforcing the ``name`` limit for the calling client."""
 
     def dependency(request: Request) -> None:
-        limiter: RateLimiter | None = request.app.state.rate_limiters.get(name)
-        if limiter is None:
-            return
-        client = request.client.host if request.client else "unknown"
-        wait = limiter.acquire(client)
-        if wait > 0:
-            raise HTTPException(
-                status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Too many requests. Try again later.",
-                headers={"Retry-After": str(math.ceil(wait))},
-            )
+        enforce_rate_limit(request, name)
 
     return dependency
+
+
+def enforce_rate_limit(request: Request, name: LimitName) -> None:
+    """Count one request against the ``name`` limit of the calling client; ``429``
+    once it is reached."""
+    limiter: RateLimiter | None = request.app.state.rate_limiters.get(name)
+    if limiter is None:
+        return
+    client = request.client.host if request.client else "unknown"
+    wait = limiter.acquire(client)
+    if wait > 0:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many requests. Try again later.",
+            headers={"Retry-After": str(math.ceil(wait))},
+        )
 
 
 class ConcurrencyLimiter:

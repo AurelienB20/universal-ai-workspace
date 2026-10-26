@@ -7,7 +7,7 @@ Expiry is compared with the database clock (``now()``), the same clock that sets
 import uuid
 from datetime import datetime, timedelta
 
-from sqlalchemy import exists, func, select
+from sqlalchemy import String, exists, func, literal, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +26,30 @@ class VisitorAccessStore:
         expires_at = func.now() + ttl
         stmt = insert(VisitorRepositoryRow).values(
             visitor_id=visitor_id, repository_key=repository.lower(), expires_at=expires_at
+        )
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[VisitorRepositoryRow.visitor_id, VisitorRepositoryRow.repository_key],
+            set_={
+                "expires_at": func.greatest(
+                    VisitorRepositoryRow.expires_at, stmt.excluded.expires_at
+                )
+            },
+        )
+        await self._session.execute(stmt)
+
+    async def extend_to(self, repository: str, new_name: str) -> None:
+        """Give every visitor who may read ``repository`` the same access to
+        ``new_name`` (the repository's name after a rename on GitHub)."""
+        old_key, new_key = repository.lower(), new_name.lower()
+        if old_key == new_key:
+            return
+        copies = select(
+            VisitorRepositoryRow.visitor_id,
+            literal(new_key, String(200)),
+            VisitorRepositoryRow.expires_at,
+        ).where(VisitorRepositoryRow.repository_key == old_key)
+        stmt = insert(VisitorRepositoryRow).from_select(
+            ["visitor_id", "repository_key", "expires_at"], copies
         )
         stmt = stmt.on_conflict_do_update(
             index_elements=[VisitorRepositoryRow.visitor_id, VisitorRepositoryRow.repository_key],

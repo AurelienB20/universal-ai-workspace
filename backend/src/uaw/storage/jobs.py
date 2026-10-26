@@ -1,6 +1,7 @@
 """Persistence of ingestion jobs. Like ``SnapshotStore``, it never commits."""
 
 import uuid
+from datetime import datetime
 
 from sqlalchemy import func, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -14,8 +15,11 @@ class JobStore:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def create_or_get_active(self, repository: str) -> tuple[IngestionJob, bool]:
-        """Queue an import of ``repository`` ("owner/name").
+    async def create_or_get_active(
+        self, repository: str, visitor_id: uuid.UUID | None = None
+    ) -> tuple[IngestionJob, bool]:
+        """Queue an import of ``repository`` ("owner/name"), asked for by ``visitor_id``
+        (None: the admin).
 
         Returns ``(job, created)``. If the repository already has a queued or running
         job, that job is returned instead and ``created`` is False.
@@ -31,6 +35,7 @@ class JobStore:
                     repository_key=key,
                     repository=repository,
                     status=JobStatus.QUEUED,
+                    visitor_id=visitor_id,
                 )
                 .on_conflict_do_nothing(
                     index_elements=[IngestionJobRow.repository_key],
@@ -56,6 +61,22 @@ class JobStore:
         row = await self._session.get(IngestionJobRow, job_id, populate_existing=True)
         return _to_job(row) if row is not None else None
 
+    async def latest_succeeded(self, repository: str) -> IngestionJob | None:
+        """The most recent import of ``repository`` ("owner/name", any case) that
+        succeeded and whose snapshot still exists."""
+        stmt = (
+            select(IngestionJobRow)
+            .where(
+                IngestionJobRow.repository_key == repository.lower(),
+                IngestionJobRow.status == JobStatus.SUCCEEDED,
+                IngestionJobRow.snapshot_id.is_not(None),
+            )
+            .order_by(IngestionJobRow.finished_at.desc())
+            .limit(1)
+        )
+        row = await self._session.scalar(stmt)
+        return _to_job(row) if row is not None else None
+
     async def has_active(self, repository: str) -> bool:
         """Whether an import of ``repository`` ("owner/name", any case) is queued or running."""
         stmt = select(IngestionJobRow.id).where(
@@ -63,6 +84,32 @@ class JobStore:
             IngestionJobRow.status.in_(ACTIVE_JOB_STATUSES),
         )
         return await self._session.scalar(stmt.exists().select()) or False
+
+    async def lock_visitor_imports(self) -> None:
+        """Serialize visitor quota checks until the transaction ends, so that two
+        requests cannot both count, then both queue."""
+        await self._session.execute(
+            select(func.pg_advisory_xact_lock(func.hashtext("uaw.visitor_imports")))
+        )
+
+    async def count_visitor_imports(
+        self, since: datetime, visitor_id: uuid.UUID | None = None
+    ) -> int:
+        """Imports queued by visitors since ``since``: by ``visitor_id``, or by all."""
+        stmt = select(func.count()).where(
+            IngestionJobRow.visitor_id.is_not(None), IngestionJobRow.created_at >= since
+        )
+        if visitor_id is not None:
+            stmt = stmt.where(IngestionJobRow.visitor_id == visitor_id)
+        return (await self._session.execute(stmt)).scalar_one()
+
+    async def count_active_visitor_imports(self) -> int:
+        """Visitor imports queued or running."""
+        stmt = select(func.count()).where(
+            IngestionJobRow.visitor_id.is_not(None),
+            IngestionJobRow.status.in_(ACTIVE_JOB_STATUSES),
+        )
+        return (await self._session.execute(stmt)).scalar_one()
 
     async def mark_running(self, job_id: uuid.UUID) -> None:
         await self._update(
