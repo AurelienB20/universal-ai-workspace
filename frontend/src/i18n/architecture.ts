@@ -399,6 +399,14 @@ const fr: ArchitectureContent = {
         revisit: "Jamais : c'est la règle du projet.",
         code: "backend/src/uaw/evaluation/metrics.py",
       },
+      {
+        title: "Un import public privé, plafonné et éphémère",
+        decision: "Un visiteur peut importer son propre dépôt : lui seul le voit, il est supprimé au bout de 24 h, et son coût est estimé avant d'être dépensé.",
+        why: "Tester sur son propre code convainc plus qu'une démo figée. Mais un import public coûte de l'argent et peut indexer du contenu piégé : chaque visiteur est isolé, et la dépense des visiteurs est bornée par construction (20 imports × 400 000 tokens par jour au plus).",
+        tradeoff: "Le visiteur est identifié par un cookie anonyme, qu'un robot peut renouveler : ce sont les quotas par adresse et le quota global qui protègent vraiment. Un dépôt déjà indexé est partagé tel quel, sans être mis à jour.",
+        revisit: "Des comptes utilisateurs arrivent (multi-utilisateur) : l'accès se rattache au compte, plus au cookie.",
+        code: "backend/src/uaw/api/imports.py",
+      },
     ],
   },
   safeguards: {
@@ -407,7 +415,7 @@ const fr: ArchitectureContent = {
     items: [
       {
         title: "Deux rôles",
-        text: "La clé de démo ne peut qu'interroger une liste blanche de dépôts. Un dépôt hors liste reçoit la même 404 qu'un dépôt inconnu.",
+        text: "La clé de démo ne peut interroger qu'une liste blanche de dépôts, plus ceux que son visiteur a importés. Un autre dépôt reçoit la même 404 qu'un dépôt inconnu.",
       },
       {
         title: "Budgets journaliers",
@@ -732,6 +740,14 @@ const en: ArchitectureContent = {
         revisit: "Never: it is the project's rule.",
         code: "backend/src/uaw/evaluation/metrics.py",
       },
+      {
+        title: "A public import that is private, capped and temporary",
+        decision: "A visitor can import their own repository: only they see it, it is deleted after 24 h, and its cost is estimated before it is spent.",
+        why: "Trying it on your own code convinces more than a fixed demo. But a public import costs money and can index booby-trapped content: each visitor is isolated, and what visitors can spend is bounded by construction (at most 20 imports × 400,000 tokens a day).",
+        tradeoff: "A visitor is identified by an anonymous cookie, which a bot can renew: the per-address and global quotas are what really protect. A repository already indexed is shared as it is, without being refreshed.",
+        revisit: "User accounts arrive (multi-user): access is tied to the account, no longer to the cookie.",
+        code: "backend/src/uaw/api/imports.py",
+      },
     ],
   },
   safeguards: {
@@ -740,7 +756,7 @@ const en: ArchitectureContent = {
     items: [
       {
         title: "Two roles",
-        text: "The demo key can only question an allowlist of repositories. One outside the list gets the same 404 as an unknown one.",
+        text: "The demo key can only question an allowlist of repositories, plus those its visitor imported. Any other gets the same 404 as an unknown one.",
       },
       {
         title: "Daily budgets",

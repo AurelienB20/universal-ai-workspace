@@ -74,9 +74,11 @@ services:
     environment:
       API_URL: http://api:8000
       # The demo key, never the admin key: visitors can only question the
-      # DEMO_REPOSITORIES, and the import panel is removed.
+      # DEMO_REPOSITORIES, and import only with PUBLIC_IMPORTS_ENABLED (each visitor's
+      # own repositories, private and temporary). Otherwise the import panel is removed.
       API_KEY: ${DEMO_API_KEY:?set DEMO_API_KEY in .env}
-      IMPORTS_ENABLED: "false"
+      IMPORTS_ENABLED: ${PUBLIC_IMPORTS_ENABLED:-false}
+      PUBLIC_IMPORTS_ENABLED: ${PUBLIC_IMPORTS_ENABLED:-false}
     networks: [internal, edge]
     healthcheck:
       test:

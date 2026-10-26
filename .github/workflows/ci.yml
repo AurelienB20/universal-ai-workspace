@@ -140,6 +140,11 @@ jobs:
           awk -F'|' 'NF == 3 && $2 != $3 { print "mismatch: " $0; bad = 1 } END { exit bad }' restore.txt
           grep -qx 'repositories|1|1' restore.txt
           grep -qx 'usage_records|1|1' restore.txt
+      - name: Smoke tests with public imports
+        run: |
+          printf 'PUBLIC_IMPORTS_ENABLED=true\nDAILY_EMBEDDING_TOKEN_BUDGET=13000000\n' >> .env
+          docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 240
+          INSECURE=1 ./smoke-test.sh https://localhost
       # Last: the web server is pointed at a fake API that streams an answer slowly.
       - name: Streamed answers pass through Caddy and Next.js unbuffered
         run: |

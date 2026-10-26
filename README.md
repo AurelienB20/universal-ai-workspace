@@ -47,7 +47,7 @@ Each point below is enforced by code and checked by a test, not just described.
 | 💸 | **Budgets leak under concurrency.** Checking "spent < budget" lets 20 simultaneous questions all pass. | Each question reserves its worst-case tokens first, under a PostgreSQL advisory lock. The test sends 5 questions for a budget of 3: exactly 3 pass, and it fails if the lock is removed. | [`tracker.py`](backend/src/uaw/usage/tracker.py), [test](backend/tests/integration/test_usage.py) |
 | 🛡️ | **Repositories are untrusted input**, for the server and for the model. | Archives are read in memory, never extracted: decompression bombs, path traversal and oversized files are rejected. Passages are escaped inside `<source>` tags, and opt-in tests run real prompt-injection attempts against the model. | [archive tests](backend/tests/unit/test_github_archive.py), [injection tests](backend/tests/live/test_prompt_injection_live.py) |
 | 🔍 | **Filtered vector search silently returns nothing.** An HNSW index over every repository keeps the nearest chunks of the whole table, then the repository filter removes them all. | pgvector iterative index scans. An integration test forces the plan and shows the plain query losing every result. | [test](backend/tests/integration/test_search.py) |
-| 🔐 | **A public demo is a cost and abuse target.** | Two roles: the demo key can only question an allowlist of repositories and never import. Rate limits, a cap on concurrent questions, required daily budgets. The API key never reaches the browser; a Content Security Policy guards the page. | [`security.py`](backend/src/uaw/api/security.py), [frontend](frontend/README.md) |
+| 🔐 | **A public demo is a cost and abuse target.** | Two roles: the demo key can only question an allowlist of repositories, plus the ones its visitor imported, which nobody else sees and which expire after a day; visitor imports are capped in size, in estimated cost and in number. Rate limits, a cap on concurrent questions, required daily budgets. The API key never reaches the browser; a Content Security Policy guards the page. | [`security.py`](backend/src/uaw/api/security.py), [frontend](frontend/README.md) |
 | ⚡ | **Live answers cost money and take ~10 s.** | Answers are streamed: the passages show after ~0.6 s, then the text as it is written, as a draft the checked answer replaces. Suggested questions are answered once and served from a cache, labelled with their generation date, and deleted with the snapshot they came from, so they never describe other code. | [test](backend/tests/integration/test_suggestions.py) |
 
 ## How it works
@@ -155,7 +155,11 @@ server (Caddy, HTTPS, backups), with the same stack CI runs on every push:
   snapshot cleanup, cached suggested answers, security headers.
 - [x] **Showcase:** *Explain the Evidence* under every answer, a *How it is built* page,
   suggested questions.
-- [ ] Public deployment: the stack, backups and checks are ready and tested in CI ([guide](docs/deployment.md)); the server is next.
+- [x] **Public deployment:** one OVH server, with HTTPS, nightly backups and smoke tests,
+  the same stack as in CI ([guide](docs/deployment.md)).
+- [x] **Imports by visitors:** a visitor imports their own repository, private to them,
+  deleted after a day, its cost estimated before it is spent, within daily quotas
+  ([ADR 0014](docs/adr/0014-public-imports-private-capped-temporary.md)).
 - [x] **Streaming answers:** the sources after about 0.6 s, then the text as Claude writes
   it, then the server-checked answer, which replaces the draft
   ([ADR 0013](docs/adr/0013-streamed-draft-then-checked-answer.md)).
