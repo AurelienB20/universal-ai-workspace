@@ -35,6 +35,15 @@ describe("errorMessage", () => {
     );
   });
 
+  it("tells a visitor when imports can start again", () => {
+    expect(errorMessage(new ApiError(429, "quota", 7200), messages.fr, "import")).toBe(
+      "Limite d'imports atteinte pour aujourd'hui. Réessayez dans 2 h.",
+    );
+    expect(errorMessage(new ApiError(503, "queue", 60), messages.en, "import")).toBe(
+      "Other imports are in progress. Try again in 1 min.",
+    );
+  });
+
   it("explains a 422 according to the action", () => {
     const error = new ApiError(422, "bad", null);
 

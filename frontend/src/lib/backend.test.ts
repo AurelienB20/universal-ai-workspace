@@ -7,7 +7,9 @@ import {
   forward,
   forwardStream,
   importsEnabled,
+  publicImports,
   suggestionsPath,
+  visitorId,
 } from "./backend";
 
 const CONFIG: BackendConfig = { url: "http://backend:8000", apiKey: "server-key" };
@@ -164,6 +166,66 @@ describe("clientAddress", () => {
 
   it("is undefined without the header", () => {
     expect(clientAddress(new Headers())).toBeUndefined();
+  });
+});
+
+describe("visitor identifier", () => {
+  const ID = "8f14e45f-ceea-467f-a0e6-2c6c1b0f5a3b";
+
+  it("forwards the visitor's identifier and keeps their cookie", async () => {
+    const fetchImpl = backendReturning(Response.json({}));
+
+    const response = await forward(
+      post("{}", { cookie: `theme=dark; uaw_visitor=${ID.toUpperCase()}` }),
+      "/ask",
+      CONFIG,
+      fetchImpl,
+    );
+
+    expect(new Headers(fetchImpl.mock.calls[0][1]?.headers).get("x-visitor-id")).toBe(ID);
+    expect(response.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("gives a new visitor a random identifier, in an HttpOnly cookie", async () => {
+    const fetchImpl = backendReturning(Response.json({}));
+
+    const response = await forward(post("{}"), "/ask", CONFIG, fetchImpl);
+
+    const sent = new Headers(fetchImpl.mock.calls[0][1]?.headers).get("x-visitor-id");
+    expect(sent).toMatch(/^[0-9a-f-]{36}$/);
+    const cookie = response.headers.get("set-cookie") ?? "";
+    expect(cookie).toContain(`uaw_visitor=${sent};`);
+    expect(cookie).toContain("HttpOnly");
+    expect(cookie).toContain("Secure");
+    expect(cookie).toContain("SameSite=Lax");
+  });
+
+  it("replaces a malformed identifier", async () => {
+    const fetchImpl = backendReturning(Response.json({}));
+
+    const response = await forwardStream(
+      post("{}", { cookie: "uaw_visitor=../../admin" }),
+      "/ask/stream",
+      CONFIG,
+      fetchImpl,
+    );
+
+    const sent = new Headers(fetchImpl.mock.calls[0][1]?.headers).get("x-visitor-id");
+    expect(sent).toMatch(/^[0-9a-f-]{36}$/);
+    expect(response.headers.get("set-cookie")).toContain(`uaw_visitor=${sent};`);
+  });
+
+  it("reads only its own cookie", () => {
+    expect(visitorId(new Headers({ cookie: `other_uaw_visitor=${ID}` }))).toBeNull();
+    expect(visitorId(new Headers())).toBeNull();
+  });
+});
+
+describe("publicImports", () => {
+  it("is off unless explicitly enabled", () => {
+    expect(publicImports({})).toBe(false);
+    expect(publicImports({ PUBLIC_IMPORTS_ENABLED: " TRUE " })).toBe(true);
+    expect(publicImports({ PUBLIC_IMPORTS_ENABLED: "false" })).toBe(false);
   });
 });
 
