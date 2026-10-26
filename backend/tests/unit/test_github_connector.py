@@ -1,3 +1,4 @@
+from dataclasses import replace
 from typing import Any
 
 import httpx2 as httpx
@@ -82,3 +83,33 @@ def test_limits_are_derived_from_settings() -> None:
 
     assert limits.archive.max_file_bytes == 4096
     assert limits.archive.max_files == 7
+
+
+async def test_limits_passed_to_fetch_replace_the_connector_limits() -> None:
+    transport, paths = fake_github(repo_json(size=512), b"")  # 0.5 MB < 1 MB
+    strict = replace(ImportLimits.from_settings(SETTINGS), max_repo_size_bytes=256 * 1024)
+
+    with pytest.raises(RepositoryTooLargeError):
+        await make_connector(transport).fetch(REF, strict)
+    assert paths == ["/repos/octo/hello"]
+
+
+def test_visitor_limits_are_the_stricter_of_both() -> None:
+    settings = Settings(
+        _env_file=None,
+        max_repo_size_mb=200,
+        max_archive_mb=50,
+        max_files=3000,
+        visitor_max_repo_size_mb=20,
+        visitor_max_files=300,
+    )
+
+    limits = ImportLimits.for_visitors(settings)
+
+    assert limits.max_repo_size_bytes == 20 * 1024 * 1024
+    assert limits.max_archive_bytes == 20 * 1024 * 1024
+    assert limits.archive.max_uncompressed_bytes == 100 * 1024 * 1024
+    assert limits.archive.max_files == 300
+    # Never looser than the admin's.
+    loose = ImportLimits.for_visitors(Settings(_env_file=None, max_files=100))
+    assert loose.archive.max_files == 100

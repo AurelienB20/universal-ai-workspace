@@ -4,7 +4,7 @@ import hashlib
 from collections.abc import Sequence
 
 from uaw.connectors.github.client import RepositoryInfo
-from uaw.connectors.github.connector import FetchedRepository
+from uaw.connectors.github.connector import FetchedRepository, ImportLimits
 from uaw.connectors.github.url import GitHubRepoRef
 from uaw.domain.documents import SourceDocument
 from uaw.storage.models import EMBEDDING_DIMENSIONS
@@ -54,21 +54,30 @@ class FakeSource:
         *,
         sha: str = SHA,
         error: Exception | None = None,
+        canonical: GitHubRepoRef | None = None,
     ) -> None:
         self.documents = DOCUMENTS if documents is None else documents
         self.sha = sha
         self.error = error
+        # GitHub reports the canonical casing (or the new name), whatever the user typed.
+        self.canonical = canonical or GitHubRepoRef(owner="Octo", name="Demo")
         self.fetched: list[GitHubRepoRef] = []
+        self.limits: list[ImportLimits | None] = []
 
-    async def fetch(self, ref: GitHubRepoRef) -> FetchedRepository:
+    async def fetch(
+        self, ref: GitHubRepoRef, limits: ImportLimits | None = None
+    ) -> FetchedRepository:
         self.fetched.append(ref)
+        self.limits.append(limits)
         if self.error is not None:
             raise self.error
-        # GitHub reports the canonical casing, whatever the user typed.
-        canonical = GitHubRepoRef(owner="Octo", name="Demo")
         return FetchedRepository(
             info=RepositoryInfo(
-                ref=canonical, default_branch="main", size_kb=1, private=False, description=None
+                ref=self.canonical,
+                default_branch="main",
+                size_kb=1,
+                private=False,
+                description=None,
             ),
             commit_sha=self.sha,
             documents=self.documents,

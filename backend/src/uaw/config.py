@@ -79,6 +79,32 @@ class Settings(BaseSettings):
     max_file_kb: int = Field(default=256, gt=0)  # larger files are skipped
     max_files: int = Field(default=3_000, gt=0)  # indexed files per repository
 
+    # Imports by visitors of the public demo (demo key with a visitor id). Off by
+    # default. A visitor reads only the repositories they imported, for
+    # VISITOR_ACCESS_HOURS, and imports under stricter limits than the admin.
+    public_imports_enabled: bool = False
+    visitor_access_hours: int = Field(default=24, gt=0, le=24 * 30)
+    visitor_max_repo_size_mb: int = Field(default=20, gt=0)
+    visitor_max_files: int = Field(default=300, gt=0)
+    # Embedding tokens of one visitor import, estimated before any is spent. The
+    # estimate counts 3 characters per token; measured: about 4 on Flask and
+    # itsdangerous, so it overestimates the real cost.
+    visitor_max_import_tokens: int = Field(default=400_000, gt=0)
+    # Imports per visitor and in total, per UTC day, counted in the database. With the
+    # cap above, visitors can spend at most VISITOR_IMPORTS_PER_DAY x
+    # VISITOR_MAX_IMPORT_TOKENS embedding tokens a day.
+    visitor_imports_per_visitor_per_day: int = Field(default=2, gt=0)
+    visitor_imports_per_day: int = Field(default=20, gt=0)
+    # Per client IP address, counted in memory (a restart resets it). 0 = no limit.
+    rate_limit_visitor_imports_per_day: int = Field(default=3, ge=0)
+    # Visitor imports run one at a time; at most this many wait behind the running one.
+    visitor_import_queue: int = Field(default=3, ge=0, le=50)
+
+    @property
+    def visitor_daily_embedding_tokens(self) -> int:
+        """The most embedding tokens visitor imports can spend in a day."""
+        return self.visitor_imports_per_day * self.visitor_max_import_tokens
+
     # PostgreSQL with pgvector. The default matches docker-compose.yml (local only).
     # Secret because the URL contains the password.
     database_url: SecretStr = SecretStr("postgresql+asyncpg://uaw:uaw@127.0.0.1:5432/uaw")
@@ -188,6 +214,25 @@ class Settings(BaseSettings):
             raise ValueError("DEMO_API_KEY requires API_KEY (the admin key)")
         if self.demo_api_key.get_secret_value() == self.api_key.get_secret_value():
             raise ValueError("DEMO_API_KEY must differ from API_KEY")
+        return self
+
+    @model_validator(mode="after")
+    def _check_public_imports(self) -> Self:
+        if not self.public_imports_enabled:
+            return self
+        # Visitors are told apart by the web interface, which holds the demo key.
+        if self.demo_api_key is None:
+            raise ValueError("PUBLIC_IMPORTS_ENABLED requires DEMO_API_KEY")
+        # Visitor imports count against the embedding budget like any import. Without
+        # room left after their maximum, they could stop every question for the day.
+        budget = self.daily_embedding_token_budget
+        if budget and budget <= self.visitor_daily_embedding_tokens:
+            raise ValueError(
+                f"DAILY_EMBEDDING_TOKEN_BUDGET ({budget}) must exceed what visitor imports "
+                f"can spend in a day ({self.visitor_daily_embedding_tokens} = "
+                "VISITOR_IMPORTS_PER_DAY x VISITOR_MAX_IMPORT_TOKENS), so that questions "
+                "keep the rest"
+            )
         return self
 
 

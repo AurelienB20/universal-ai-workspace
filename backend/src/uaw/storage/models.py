@@ -168,6 +168,8 @@ class IngestionJobRow(Base):
         ForeignKey("snapshots.id", ondelete="SET NULL")
     )
     reused_snapshot: Mapped[bool] = mapped_column(server_default=false())
+    # The visitor of the public demo who asked for the import; None for the admin.
+    visitor_id: Mapped[uuid.UUID | None]
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
