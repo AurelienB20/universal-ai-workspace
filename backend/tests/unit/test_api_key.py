@@ -102,3 +102,28 @@ def test_demo_key_cannot_import() -> None:
         ("GET", "/imports/00000000-0000-0000-0000-000000000000", None),
     ]:
         assert http.request(method, path, json=body, headers=DEMO).status_code == 403, path
+
+
+VISITOR = "8f14e45f-ceea-467f-a0e6-2c6c1b0f5a3b"
+
+
+def test_a_malformed_visitor_id_is_refused_with_the_demo_key() -> None:
+    headers = {**DEMO, "X-Visitor-Id": "not-a-uuid"}
+
+    response = demo_client().post("/ask", json=ASK, headers=headers)
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Invalid X-Visitor-Id header."
+
+
+def test_the_admin_key_ignores_the_visitor_id() -> None:
+    headers = {**ADMIN, "X-Visitor-Id": "not-a-uuid"}
+
+    assert demo_client().post("/ask", json=ASK, headers=headers).status_code == 503
+
+
+def test_a_visitor_id_does_not_widen_the_allowlist_by_itself() -> None:
+    # Allowlisted repositories are answered without looking up the visitor's own.
+    headers = {**DEMO, "X-Visitor-Id": VISITOR}
+
+    assert demo_client().post("/ask", json=ASK, headers=headers).status_code == 503

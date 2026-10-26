@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from uaw.api.deps import get_services
 from uaw.api.ratelimit import ConcurrencyLimiter, rate_limited
-from uaw.api.security import RoleDep, ensure_repository_allowed
+from uaw.api.security import Caller, CallerDep, ensure_repository_allowed
 from uaw.api.usage import reserved, tracked
 from uaw.config import Settings
 from uaw.connectors.github.url import (
@@ -58,13 +58,15 @@ class AskRequest(BaseModel):
 
 
 @router.post("", dependencies=[Depends(rate_limited("ask"))], responses=ERROR_RESPONSES)
-async def ask(body: AskRequest, services: ServicesDep, request: Request, role: RoleDep) -> Answer:
+async def ask(
+    body: AskRequest, services: ServicesDep, request: Request, caller: CallerDep
+) -> Answer:
     """Answer a question about an imported repository, with citations to exact lines.
 
     Citations are checked by the server: each one points to a passage that was really
     retrieved, at the indexed commit.
     """
-    ref, question = _checked(body, request, role)
+    ref, question = await _checked(body, request, services, caller)
     return await generate_answer(services, request, ref, question)
 
 
@@ -83,7 +85,7 @@ async def ask(body: AskRequest, services: ServicesDep, request: Request, role: R
     },
 )
 async def ask_stream(
-    body: AskRequest, services: ServicesDep, request: Request, role: RoleDep
+    body: AskRequest, services: ServicesDep, request: Request, caller: CallerDep
 ) -> StreamingResponse:
     """POST /ask, streamed: the sources as soon as they are found, then the answer
     while it is written.
@@ -92,7 +94,7 @@ async def ask_stream(
     citations checked, which replaces it. Errors found before the stream starts
     (unknown repository, busy server, budget) are ordinary HTTP errors.
     """
-    ref, question = _checked(body, request, role)
+    ref, question = await _checked(body, request, services, caller)
     stream = _AnswerStream(services, request, ref, question)
     sources = await stream.first()
     return StreamingResponse(
@@ -100,12 +102,14 @@ async def ask_stream(
     )
 
 
-def _checked(body: AskRequest, request: Request, role: RoleDep) -> tuple[GitHubRepoRef, str]:
+async def _checked(
+    body: AskRequest, request: Request, services: Services, caller: Caller
+) -> tuple[GitHubRepoRef, str]:
     try:
         ref = parse_github_full_name(body.repository)
     except InvalidRepositoryUrlError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
-    ensure_repository_allowed(request, role, ref)
+    await ensure_repository_allowed(request, services, caller, ref)
     question = body.question.strip()
     if not question:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail="The question is empty.")

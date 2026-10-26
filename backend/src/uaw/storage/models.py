@@ -173,6 +173,22 @@ class IngestionJobRow(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class VisitorRepositoryRow(Base):
+    """A repository a visitor of the public demo imported, readable by that visitor
+    only, until ``expires_at``. Keyed by the repository's identity rather than its row:
+    the access exists from the start of the import, before the repository row does."""
+
+    __tablename__ = "visitor_repositories"
+    __table_args__ = (Index("ix_visitor_repositories_expires_at", "expires_at"),)
+
+    # Anonymous identifier held in the visitor's browser (see uaw.api.security).
+    visitor_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    # Lowercase "owner/name", same identity as RepositoryRow.key.
+    repository_key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class UsageRecordRow(Base):
     """Tokens used by one operation with one model. Kept when a repository is deleted:
     the usage was billed anyway."""
